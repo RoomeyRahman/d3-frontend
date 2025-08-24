@@ -9,7 +9,6 @@ interface LineChartData {
   value?: number;
   [key: string]: any;
 }
-
 interface LineChartProps {
   data: {
     processed_data: LineChartData[];
