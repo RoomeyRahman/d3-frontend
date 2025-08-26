@@ -10,26 +10,40 @@ import { useParams } from "next/navigation";
 const PromptPage = () => {
   const params = useParams();
   const sessionId = params.id as string;
+
   return (
-    <div className="bg-gray-300">
-      <div className="grid grid-cols-8 px-10 gap-5 py-5">
-        <div className="col-span-5">
-          <Suspense fallback={<div>Loading chart...</div>}>
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 p-6">
+      {/* Top section */}
+      <div className="grid grid-cols-8 gap-6">
+        {/* Chart area */}
+        <div className="col-span-5 rounded-2xl bg-white shadow-lg p-6 hover:shadow-2xl transition-all duration-300">
+          <Suspense
+            fallback={<div className="text-gray-500">Loading chart...</div>}
+          >
             <D3Chart sessionId={sessionId} />
           </Suspense>
         </div>
-        <div className="col-span-3 h-[430px] overflow-y-auto rounded-lg bg-gray-100 p-5 scrollbar-hide">
+
+        {/* Explanations area */}
+        <div className="col-span-3 overflow-y-auto rounded-2xl bg-white shadow-lg p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
           <Explanations />
         </div>
       </div>
-      <div className="grid grid-cols-3 px-10 gap-5 py-5">
-        <div className="rounded-lg bg-gray-100">
+
+      {/* Bottom section */}
+      <div className="grid grid-cols-3 gap-6 mt-6">
+        {/* Data */}
+        <div className="rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 p-6">
           <DataComponent sessionId={sessionId} />
         </div>
-        <div className="rounded-lg bg-gray-100">
+
+        {/* Recommendations */}
+        <div className="rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 p-6">
           <RecommendationComponent sessionId={sessionId} />
         </div>
-        <div className="rounded-lg bg-gray-100 scrollbar-hide">
+
+        {/* Chat */}
+        <div className="rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
           <ChatComponent />
         </div>
       </div>

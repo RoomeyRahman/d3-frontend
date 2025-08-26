@@ -18,7 +18,7 @@ const ChatComponent = () => {
 
   const simulateAIResponse = () => {
     const aiResponse =
-      "Lorem ipsum, dolor sit amet consectetur adipisicing elit. Perferendis, quo nemo deleniti molestiae, obcaecati dolor id beatae quae voluptates corrupti culpa corporis labore eligendi et tempore error. Quam quos totam odio, aliquid possimus iure, nisi dolorem nihil asperiores tempora pariatur itaque ullam cupiditate dolor, beatae maxime obcaecati qui quaerat? Cumque fugiat est dolore dolor voluptas, adipisci facilis nesciunt laborum nostrum optio provident sapiente. Vitae, nobis. Repudiandae quis maxime eum iusto beatae commodi fugit incidunt, soluta necessitatibus quos deleniti possimus doloremque sit! Veniam laboriosam numquam iusto tempore fugit iure neque deserunt. Pariatur, incidunt consequuntur. Eligendi repellat nesciunt nemo cumque temporibus illum itaque quia rerum libero deserunt officiis inventore voluptate rem non, praesentium repellendus doloremque magni dicta velit. Ab aspernatur quibusdam amet hic. Voluptatum sit at asperiores impedit. Deleniti exercitationem voluptatum aspernatur odit ad vero nemo eveniet porro inventore atque totam veritatis, iure reiciendis accusamus quis ratione sit nesciunt illo consequuntur. Atque hic dolor aliquam quibusdam repudiandae odit debitis neque quidem nostrum suscipit. Distinctio assumenda dignissimos sint ex amet mollitia rerum exercitationem, adipisci doloribus quod perferendis cum magni doloremque aperiam! Ea placeat dignissimos assumenda provident nam repellat, suscipit impedit perferendis facilis voluptatum, modi fugit expedita laborum aliquam. Minus voluptatum mollitia itaque assumenda. ";
+      "Hello! 👋 I'm your AI assistant. This is a simulated long response to show typing animation and scrolling behavior. You can customize my responses.";
     let index = 0;
     setTypingMessage("");
     const typingInterval = setInterval(() => {
@@ -30,12 +30,18 @@ const ChatComponent = () => {
         setMessages((prev) => [...prev, { sender: "ai", text: aiResponse }]);
         setIsTyping(false);
       }
-    }, 100);
+    }, 30);
   };
 
   return (
-    <div className="relative w-full h-80 rounded-lg p-4">
-      <div className="overflow-y-auto scrollbar-hide h-[calc(100%-60px)] space-y-3">
+    <div className="relative flex flex-col h-full w-full rounded-lg bg-white shadow-md border border-gray-200">
+      {/* Chat Header */}
+      <div className="p-3 border-b border-gray-200 font-semibold text-gray-700">
+        💬 AI Chat
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
         {messages.map((message, index) => (
           <div
             key={index}
@@ -44,10 +50,10 @@ const ChatComponent = () => {
             }`}
           >
             <div
-              className={`p-3 rounded-lg max-w-xs  ${
+              className={`p-3 rounded-2xl max-w-xs text-sm leading-relaxed shadow-sm ${
                 message.sender === "user"
-                  ? "bg-blue-500 text-white"
-                  : " text-gray-900 w-full"
+                  ? "bg-blue-500 text-white rounded-br-none"
+                  : "bg-gray-100 text-gray-900 rounded-bl-none"
               }`}
             >
               {message.sender === "ai" &&
@@ -58,29 +64,33 @@ const ChatComponent = () => {
             </div>
           </div>
         ))}
+
+        {isTyping && (
+          <div className="flex justify-start">
+            <div className="bg-gray-200 text-gray-600 px-3 py-2 rounded-2xl text-sm rounded-bl-none italic animate-pulse">
+              AI is typing...
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="absolute bottom-4 w-full flex items-center space-x-2">
+      {/* Input */}
+      <div className="p-3 border-t border-gray-200 flex items-center space-x-2">
         <input
           type="text"
-          className="w-[78%] p-2 bg-gray-300 rounded-lg text-sm text-gray-600"
+          className="flex-1 p-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
           placeholder="Type your message..."
         />
         <button
           onClick={handleSend}
-          className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
         >
           Send
         </button>
       </div>
-
-      {isTyping && (
-        <div className="absolute bottom-12 left-0 text-gray-500 italic">
-          AI is typing...
-        </div>
-      )}
     </div>
   );
 };

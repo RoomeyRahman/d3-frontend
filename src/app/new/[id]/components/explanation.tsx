@@ -36,7 +36,7 @@ const Explanations = () => {
   }, [displayText]);
 
   return (
-    <div className="px-2 max-w-2xl text-gray-900">
+    <div className="px-2 max-w-2xl text-gray-900 ">
       <div>
         <p className="font-semibold text-lg">Bar Chart Explanation</p>
       </div>
