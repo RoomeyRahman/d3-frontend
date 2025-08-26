@@ -111,8 +111,8 @@ const BarChart = ({ data }: BarChartProps) => {
     return (
       <div
         style={{
-          width: data?.chart_config?.dimensions?.width || 800,
-          height: data?.chart_config?.dimensions?.height || 400,
+          width: data?.chart_config?.dimensions?.width,
+          height: data?.chart_config?.dimensions?.height,
         }}
         className="w-full h-auto flex items-center justify-center bg-gray-50"
       >
@@ -126,7 +126,7 @@ const BarChart = ({ data }: BarChartProps) => {
       ref={svgRef}
       width={data.chart_config.dimensions.width}
       height={data.chart_config.dimensions.height}
-      className="w-full h-auto"
+      className="w-full"
     />
   );
 };

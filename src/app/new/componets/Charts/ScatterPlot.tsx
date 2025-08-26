@@ -692,13 +692,13 @@ const MasterScatterPlot: React.FC<MasterScatterPlotProps> = ({ data }) => {
   const { dimensions } = data.chart_config;
 
   return (
-    <div className="relative w-full">
-      <div className="relative border rounded-lg bg-white shadow-lg overflow-hidden">
+    <div className="relative w-full flex items-center flex-col justify-center">
+      <div className="w-full">
         <svg
           ref={svgRef}
           width={dimensions.width}
           height={dimensions.height}
-          className="w-full h-auto"
+          className="w-full"
           style={{
             background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
           }}
