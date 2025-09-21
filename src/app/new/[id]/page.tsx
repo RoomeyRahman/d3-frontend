@@ -14,9 +14,9 @@ const PromptPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-300 p-6">
       {/* Top section */}
-      <div className="grid grid-cols-8 gap-6">
+      <div className="grid grid-cols-12 gap-5">
         {/* Chart area */}
-        <div className="col-span-5 rounded-2xl bg-white shadow-lg p-6 hover:shadow-2xl transition-all duration-300">
+        <div className="col-span-8 rounded-2xl bg-white shadow-lg p-6 hover:shadow-2xl transition-all duration-300">
           <Suspense
             fallback={<div className="text-gray-500">Loading chart...</div>}
           >
@@ -24,18 +24,27 @@ const PromptPage = () => {
           </Suspense>
         </div>
 
-        {/* Explanations area */}
-        <div className="col-span-3 overflow-y-auto rounded-2xl bg-white shadow-lg p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
-          <Explanations />
+        <div className="col-span-4 flex flex-col gap-2">
+          <div className=" rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 p-6">
+            <DataComponent sessionId={sessionId} />
+          </div>
+          <div className="rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+            <ChatComponent />
+          </div>
         </div>
+
+        {/* Explanations area */}
+        {/* <div className="col-span-3 overflow-y-auto rounded-2xl bg-white shadow-lg p-6 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+          <Explanations />
+        </div> */}
       </div>
 
       {/* Bottom section */}
-      <div className="grid grid-cols-3 gap-6 mt-6">
+      <div className="mt-4">
         {/* Data */}
-        <div className="rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 p-6">
+        {/* <div className="rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 p-6">
           <DataComponent sessionId={sessionId} />
-        </div>
+        </div> */}
 
         {/* Recommendations */}
         <div className="rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 p-6">
@@ -43,9 +52,9 @@ const PromptPage = () => {
         </div>
 
         {/* Chat */}
-        <div className="rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
+        {/* <div className="rounded-2xl bg-white shadow-md hover:shadow-xl transition-all duration-300 p-6 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-200">
           <ChatComponent />
-        </div>
+        </div> */}
       </div>
     </div>
   );
