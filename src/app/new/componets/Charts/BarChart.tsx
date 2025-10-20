@@ -1,134 +1,99 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import * as d3 from "d3";
-import { addTooltips, ChartData, getColorScale } from "@/app/utils/chartUtils";
 
 interface BarChartProps {
-  data: ChartData;
+  data: {
+    processed_data: Array<{ category: string; value: number; label?: string }>;
+  };
 }
 
-// Solution 1: Use client-side only rendering with hydration check
-const BarChart = ({ data }: BarChartProps) => {
+export default function BarChart({ data }: BarChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [isClient, setIsClient] = useState(false);
-
-  // Ensure we're on the client side
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   useEffect(() => {
-    if (!data || !svgRef.current || !isClient) return;
+    if (
+      !data?.processed_data ||
+      data.processed_data.length === 0 ||
+      !svgRef.current
+    )
+      return;
 
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    const margin = { top: 20, right: 30, bottom: 30, left: 60 };
+    const width = 800 - margin.left - margin.right;
+    const height = 400 - margin.top - margin.bottom;
 
-    const { processed_data, field_mappings, chart_config } = data;
-    const { dimensions } = chart_config;
-    const { width, height, margin } = dimensions;
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
+    // Clear previous content
+    d3.select(svgRef.current).selectAll("*").remove();
 
-    // Group data by x field and sum y values
-    const groupedData = d3.rollup(
-      processed_data,
-      (v) => d3.sum(v, (d) => d[field_mappings.y]),
-      (d) => d[field_mappings.x]
-    );
+    const svg = d3
+      .select(svgRef.current)
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const chartData = Array.from(groupedData, ([key, value]) => ({
-      [field_mappings.x]: key,
-      [field_mappings.y]: value,
-    }));
-
-    // Create scales
     const xScale = d3
       .scaleBand()
-      .domain(chartData.map((d) => d[field_mappings.x]))
-      .range([0, innerWidth])
+      .domain(data.processed_data.map((d) => d.category))
+      .range([0, width])
       .padding(0.1);
 
     const yScale = d3
       .scaleLinear()
-      .domain([0, d3.max(chartData, (d) => d[field_mappings.y]) || 0])
-      .range([innerHeight, 0]);
+      .domain([0, d3.max(data.processed_data, (d) => d.value) || 0])
+      .range([height, 0]);
 
-    const colorScale = getColorScale(chart_config.color_scheme);
-
-    const g = svg
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
-
-    // Create bars
-    const bars = g
+    // Bars
+    svg
       .selectAll(".bar")
-      .data(chartData)
+      .data(data.processed_data)
       .enter()
       .append("rect")
       .attr("class", "bar")
-      .attr("x", (d) => xScale(d[field_mappings.x]) || 0)
+      .attr("x", (d) => xScale(d.category) || 0)
+      .attr("y", (d) => yScale(d.value))
       .attr("width", xScale.bandwidth())
-      .attr("y", innerHeight)
-      .attr("height", 0)
-      .attr("fill", (d, i) => colorScale(i.toString()));
+      .attr("height", (d) => height - yScale(d.value))
+      .attr("fill", "#3b82f6")
+      .attr("opacity", 0.8)
+      .on("mouseover", function () {
+        d3.select(this).attr("opacity", 1).attr("fill", "#1e40af");
+      })
+      .on("mouseout", function () {
+        d3.select(this).attr("opacity", 0.8).attr("fill", "#3b82f6");
+      });
 
-    // Animate bars
-    bars
-      .transition()
-      .duration(750)
-      .attr("y", (d) => yScale(d[field_mappings.y]))
-      .attr("height", (d) => innerHeight - yScale(d[field_mappings.y]));
-
-    // Add axes
-    const xAxis = g
+    // X Axis
+    svg
       .append("g")
-      .attr("class", "x-axis")
-      .attr("transform", `translate(0,${innerHeight})`)
+      .attr("transform", `translate(0,${height})`)
       .call(d3.axisBottom(xScale))
-      .selectAll("text")
-      .style("fill", "black")
-      .style("font-size", "12px");
+      .append("text")
+      .attr("x", width / 2)
+      .attr("y", 40)
+      .attr("fill", "black")
+      .style("text-anchor", "middle")
+      .text("Category");
 
-    xAxis.selectAll(".domain").style("stroke", "black");
-
-    const yAxis = g
+    // Y Axis
+    svg
       .append("g")
-      .attr("class", "y-axis")
       .call(d3.axisLeft(yScale))
-      .selectAll("text")
-      .style("fill", "black")
-      .style("font-size", "12px");
+      .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 0 - margin.left)
+      .attr("x", 0 - height / 2)
+      .attr("dy", "1em")
+      .style("text-anchor", "middle")
+      .attr("fill", "black")
+      .text("Value");
+  }, [data]);
 
-    yAxis.selectAll(".domain").style("stroke", "black");
-
-    // Add tooltips
-    addTooltips(bars, { ...data, processed_data: chartData });
-  }, [data, isClient]);
-
-  // Show loading state during hydration
-  if (!isClient) {
-    return (
-      <div
-        style={{
-          width: data?.chart_config?.dimensions?.width,
-          height: data?.chart_config?.dimensions?.height,
-        }}
-        className="w-full h-auto flex items-center justify-center bg-gray-50"
-      >
-        <div className="text-gray-500">Loading chart...</div>
-      </div>
-    );
+  if (!data?.processed_data || data.processed_data.length === 0) {
+    return <div className="text-center text-gray-500">No data available</div>;
   }
 
-  return (
-    <svg
-      ref={svgRef}
-      width={data.chart_config.dimensions.width}
-      height={data.chart_config.dimensions.height}
-      className="w-full"
-    />
-  );
-};
-
-export default BarChart;
+  return <svg ref={svgRef} className="w-full"></svg>;
+}

@@ -1,184 +1,87 @@
+"use client";
+
 import { useEffect, useRef } from "react";
 import * as d3 from "d3";
 
-interface ChartData {
-  processed_data: Array<{
-    name: string;
-    value: number;
-    percentage: number;
-    angle?: number;
-  }>;
-  field_mappings: {
-    label: string;
-    value: string;
-  };
-  chart_config: {
-    dimensions: {
-      width: number;
-      height: number;
-      radius?: number;
-      center?: [number, number];
-    };
-  };
-}
-
 interface PieChartProps {
-  data: ChartData;
+  data: {
+    processed_data: Array<{ label: string; value: number }>;
+  };
 }
 
-const PieChart = ({ data }: PieChartProps) => {
-  const svgRef = useRef(null);
+const COLORS = [
+  "#3b82f6",
+  "#ef4444",
+  "#10b981",
+  "#f59e0b",
+  "#8b5cf6",
+  "#ec4899",
+  "#14b8a6",
+  "#f97316",
+];
+
+export default function PieChart({ data }: PieChartProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    if (!data || !svgRef.current) return;
+    if (
+      !data?.processed_data ||
+      data.processed_data.length === 0 ||
+      !svgRef.current
+    )
+      return;
 
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
-
-    const { processed_data, field_mappings, chart_config } = data;
-    const { dimensions } = chart_config;
-    const { width, height } = dimensions;
+    const width = 800;
+    const height = 400;
     const radius = Math.min(width, height) / 2 - 40;
 
-    // Use the processed data directly - it's already in the correct format
-    const chartData = processed_data;
+    d3.select(svgRef.current).selectAll("*").remove();
 
-    const g = svg
+    const svg = d3
+      .select(svgRef.current)
+      .attr("width", width)
+      .attr("height", height)
       .append("g")
       .attr("transform", `translate(${width / 2},${height / 2})`);
 
-    const pie = d3
-      .pie<any>()
-      .value((d: any) => d[field_mappings.value])
-      .sort(null);
+    const pie = d3.pie<(typeof data.processed_data)[0]>().value((d) => d.value);
+    const arc = d3
+      .arc<d3.PieArcDatum<(typeof data.processed_data)[0]>>()
+      .innerRadius(0)
+      .outerRadius(radius);
 
-    const arc = d3.arc<any>().innerRadius(0).outerRadius(radius);
-
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
-
-    const arcs = g
+    const arcs = svg
       .selectAll(".arc")
-      .data(pie(chartData))
+      .data(pie(data.processed_data))
       .enter()
       .append("g")
       .attr("class", "arc");
 
-    // Create pie slices
-    const paths = arcs
-      .append("path")
-      .attr("fill", (d, i) => colorScale(i.toString()))
-      .attr("stroke", "white")
-      .attr("stroke-width", 2);
-
-    // Animate pie slices
-    paths
-      .transition()
-      .duration(750)
-      .attrTween("d", (d: any) => {
-        const interpolate = d3.interpolate({ startAngle: 0, endAngle: 0 }, d);
-        return (t: number) => arc(interpolate(t)) || "";
-      });
-
-    // Add labels with better positioning
     arcs
-      .append("text")
-      .attr("transform", (d: any) => {
-        const centroid = arc.centroid(d);
-        // Move labels outward for better readability
-        centroid[0] *= 1.3;
-        centroid[1] *= 1.3;
-        return `translate(${centroid})`;
-      })
-      .attr("dy", "0.35em")
-      .style("text-anchor", "middle")
-      .style("font-size", "11px")
-      .style("font-weight", "500")
-      .style("fill", "#333")
-      .text((d: any) => {
-        // Show age group and percentage
-        const percentage = (d.data.percentage * 100).toFixed(1);
-        return `${d.data[field_mappings.label]} (${percentage}%)`;
-      });
-
-    // Add tooltips
-    paths
-      .on("mouseover", function (event: MouseEvent, d: any) {
-        // Highlight the slice
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr("opacity", 0.8)
-          .attr("stroke-width", 3);
-
-        // Create tooltip
-        const tooltip = d3
-          .select("body")
-          .append("div")
-          .attr("class", "tooltip")
-          .style("position", "absolute")
-          .style("background", "rgba(0, 0, 0, 0.8)")
-          .style("color", "white")
-          .style("padding", "8px 12px")
-          .style("border-radius", "4px")
-          .style("font-size", "12px")
-          .style("pointer-events", "none")
-          .style("opacity", 0);
-
-        tooltip.transition().duration(200).style("opacity", 1);
-
-        const percentage = (d.data.percentage * 100).toFixed(1);
-        const value = d.data.value.toLocaleString();
-
-        tooltip
-          .html(
-            `
-          <strong>Age Group: ${d.data[field_mappings.label]}</strong><br/>
-          Population: ${value}<br/>
-          Percentage: ${percentage}%
-        `
-          )
-          .style("left", event.pageX + 10 + "px")
-          .style("top", event.pageY - 10 + "px");
-      })
-      .on("mousemove", function (event: MouseEvent) {
-        d3.select(".tooltip")
-          .style("left", event.pageX + 10 + "px")
-          .style("top", event.pageY - 10 + "px");
+      .append("path")
+      .attr("d", arc)
+      .attr("fill", (d, i) => COLORS[i % COLORS.length])
+      .attr("opacity", 0.8)
+      .on("mouseover", function () {
+        d3.select(this).attr("opacity", 1);
       })
       .on("mouseout", function () {
-        // Remove highlight
-        d3.select(this)
-          .transition()
-          .duration(200)
-          .attr("opacity", 1)
-          .attr("stroke-width", 2);
-
-        // Remove tooltip
-        d3.select(".tooltip").remove();
+        d3.select(this).attr("opacity", 0.8);
       });
 
-    // Add a title
-    svg
+    arcs
       .append("text")
-      .attr("x", width / 2)
-      .attr("y", 30)
+      .attr("transform", (d) => `translate(${arc.centroid(d)})`)
       .attr("text-anchor", "middle")
-      .style("font-size", "16px")
-      .style("font-weight", "bold")
-      .style("fill", "#333")
-      .text("Population Distribution by Age Group");
+      .attr("font-size", "12")
+      .attr("fill", "white")
+      .attr("font-weight", "bold")
+      .text((d) => `${d.data.label}: ${d.data.value}`);
   }, [data]);
 
-  return (
-    <div className="w-full flex justify-center">
-      <svg
-        ref={svgRef}
-        width={data?.chart_config?.dimensions?.width || 600}
-        height={data?.chart_config?.dimensions?.height || 600}
-        className="max-w-full h-auto"
-      />
-    </div>
-  );
-};
+  if (!data?.processed_data || data.processed_data.length === 0) {
+    return <div className="text-center text-gray-500">No data available</div>;
+  }
 
-export default PieChart;
+  return <svg ref={svgRef} className="w-full"></svg>;
+}

@@ -19,6 +19,8 @@ export default function HomeComponent() {
   const [currentStep, setCurrentStep] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadData, setUploadedData] = useState();
+  const [processedData, setProcesseedData] = useState();
 
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -77,14 +79,37 @@ export default function HomeComponent() {
       // Start the progress simulation
       await simulateProgress();
 
-      const result = await uploadFile({
-        file: selectedFile,
-        description: message.trim() || undefined,
-      }).unwrap();
+      // Prepare form data with file
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+
+      // Make parallel GET requests with file in body
+      const [dataResponse, uploadResponse] = await Promise.all([
+        fetch(`${apiUrl}/api/data`, {
+          method: "POST",
+          body: formData,
+        }),
+        fetch(`${apiUrl}/api/data/upload`, {
+          method: "POST",
+          body: formData,
+        }),
+      ]);
+
+      if (!dataResponse.ok || !uploadResponse.ok) {
+        throw new Error("API request failed");
+      }
+
+      const dataResult = await dataResponse.json();
+      const uploadResult = await uploadResponse.json();
 
       // Complete the progress
       setUploadProgress(100);
       setCurrentStep("Upload complete!");
+
+      // Use the upload result for session data
+      const result = uploadResult;
 
       // Store session ID in Redux
       dispatch(setCurrentSession(result.session_id));
@@ -109,12 +134,29 @@ export default function HomeComponent() {
         })
       );
 
-      // Success animation delay before navigation
-      setTimeout(() => {
-        router.push(`/new/${result.session_id}`);
-      }, 1000);
+      setUploadedData({
+        data_profile: result.data_profile,
+        recommendations: result.recommendations,
+        sample_data: result.sample_data,
+      });
 
-      // Reset form after a delay
+      setProcesseedData(dataResult);
+
+      // Store recommendations in localStorage
+      if (uploadResult.recommendations) {
+        localStorage.setItem(
+          `recommendations_${dataResult.bundle.dataset_id}`,
+          JSON.stringify(uploadResult.recommendations)
+        );
+      }
+
+      // Navigate to the new page after a short delay
+      setTimeout(() => {
+        const datasetId = dataResult.bundle.dataset_id;
+        router.push(`/new/${datasetId}`);
+      }, 1500);
+
+      // Reset form after navigation
       setTimeout(() => {
         setMessage("");
         setFileName("");
@@ -122,7 +164,7 @@ export default function HomeComponent() {
         setUploadProgress(0);
         setCurrentStep("");
         setIsProcessing(false);
-      }, 1500);
+      }, 2000);
     } catch (err) {
       console.error("Upload failed:", err);
       setCurrentStep("Upload failed");
