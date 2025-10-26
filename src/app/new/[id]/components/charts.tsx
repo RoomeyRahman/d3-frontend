@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useAppSelector } from "@/lib/hooks";
+import { useAppSelector, useAppDispatch } from "@/lib/hooks";
 import { useGenerateChartMutation } from "@/lib/api/uploadApi";
+import { updateChartData } from "@/lib/features/sessionSlice";
 import type { Recommendation } from "@/lib/api/uploadApi";
 
 import BarChart from "../../componets/Charts/BarChart";
@@ -16,6 +17,9 @@ import TreemapChart from "../../componets/Charts/TreeMapChart";
 import ForceDirectedNetwork from "../../componets/Charts/ForceDirected";
 import SankeyDiagram from "../../componets/Charts/Sankey";
 import D3Heatmap from "../../componets/Charts/HeatMap";
+import ForceDirectedGraph from "../../componets/Charts/ForceDirectedGraph";
+import SunburstChart from "../../componets/Charts/Sunburst";
+import BoxPlotChart from "../../componets/Charts/BoxPlot";
 
 interface D3ChartProps {
   sessionId: string;
@@ -33,6 +37,9 @@ const CHART_TYPE_MAP: Record<string, string> = {
   force_directed: "force_network",
   sankey: "sankey",
   heatmap: "heatmap",
+  force_directed_graph: "force_graph",
+  sunburst: "sunburst",
+  box_plot: "boxplot",
 };
 
 const D3Chart = ({ sessionId }: D3ChartProps) => {
@@ -45,18 +52,26 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
   const sessionData = useAppSelector(
     (state) => state.session.sessions[sessionId]
   );
+  const dispatch = useAppDispatch();
   const [generateChart, { isLoading, error }] = useGenerateChartMutation();
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+
+
     if (sessionData?.recommendations) {
       setRecommendations(sessionData.recommendations);
       if (sessionData.recommendations.length > 0) {
         setSelectedChart(sessionData.recommendations[0].chart_type);
       }
     }
+    if (sessionData) {
+      setChartData(sessionData.original_payload);
+    }
   }, [sessionData]);
+
+
 
   const handleGenerateChart = useCallback(async () => {
     if (!selectedChart || !sessionId || !mounted) return;
@@ -67,10 +82,17 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
         chart_type: selectedChart,
       }).unwrap();
       setChartData(result);
+      // Update the session slice with the new chart data
+      dispatch(updateChartData({
+        sessionId,
+        chartData: result.data_sample ? JSON.parse(result.data_sample) : [],
+        chartConfig: result,
+        patternsDetected: [],
+      }));
     } catch (err) {
       console.error("Chart generation failed:", err);
     }
-  }, [selectedChart, sessionId, mounted, generateChart]);
+  }, [selectedChart, sessionId, mounted, generateChart, dispatch]);
 
   useEffect(() => {
     if (mounted && selectedChart && sessionId) {
@@ -80,8 +102,11 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
 
   const renderChart = () => {
     if (!chartData) return null;
-
+    
     const mappedType = CHART_TYPE_MAP[selectedChart] || selectedChart;
+
+
+console.log(mappedType);
 
     switch (mappedType) {
       case "bar":
@@ -101,11 +126,17 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
       case "treemap":
         return <TreemapChart data={chartData} />;
       case "force_network":
-        return <ForceDirectedNetwork data={chartData} />;
+        return <ForceDirectedNetwork data={sessionData.original_payload || chartData} />;
       case "sankey":
         return <SankeyDiagram data={chartData} />;
       case "heatmap":
         return <D3Heatmap data={chartData} />;
+      case "forceDirectedGraph":
+        return <ForceDirectedGraph data={chartData} />;
+      case "sunburst":
+        return <SunburstChart data={chartData} />;
+      case "boxPlot":
+        return <BoxPlotChart data={chartData} />;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
@@ -188,7 +219,7 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
       {/* Error alert */}
       {error && (
         <div className="mt-6 p-3 bg-red-50 border border-red-400 text-red-700 rounded-lg text-sm">
-          {error.data?.detail as string}
+          {typeof error === 'object' && 'data' in error ? (error as { data?: { detail?: string } }).data?.detail : 'An error occurred'}
         </div>
       )}
 
@@ -249,3 +280,4 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
 };
 
 export default D3Chart;
+

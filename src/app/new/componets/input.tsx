@@ -2,7 +2,7 @@
 import { useState, useRef, type ChangeEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAppDispatch } from "@/lib/hooks";
-import { useUploadFileMutation } from "@/lib/api/uploadApi";
+import { useGetChartRecommendationsMutation } from "@/lib/api/uploadApi";
 import {
   addUploadRecord,
   setCurrentSession,
@@ -22,7 +22,7 @@ export default function HomeComponent() {
 
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const [uploadFile, { isLoading, error }] = useUploadFileMutation();
+  const [getChartRecommendations, { isLoading, error }] = useGetChartRecommendationsMutation();
 
   const models = [
     "Neural Network",
@@ -77,33 +77,74 @@ export default function HomeComponent() {
       // Start the progress simulation
       await simulateProgress();
 
-      const result = await uploadFile({
+      // Get chart recommendations from the external API
+      const chartResult = await getChartRecommendations({
         file: selectedFile,
         description: message.trim() || undefined,
       }).unwrap();
 
       // Complete the progress
       setUploadProgress(100);
-      setCurrentStep("Upload complete!");
+      setCurrentStep("Analysis complete!");
+
+      // Generate a session ID
+      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // Store session ID in Redux
-      dispatch(setCurrentSession(result.session_id));
+      dispatch(setCurrentSession(sessionId));
 
-      // Store session data if available
-      if (result.data_profile && result.recommendations && result.sample_data) {
-        dispatch(
-          addSessionData({
-            sessionId: result.session_id,
-            data_profile: result.data_profile,
-            recommendations: result.recommendations,
-            sample_data: result.sample_data,
-          })
-        );
-      }
+      // Store session data with chart recommendations
+      const edgesData = chartResult.data.find(item => item.name === 'edges')?.df || [];
+      const nodesData = chartResult.data.find(item => item.name === 'nodes')?.df || [];
+
+      // Create sample data for display - ensure all values are primitives
+      const sampleData = edgesData.slice(0, 10).map((edge, index) => {
+        // Ensure all values are primitive types that can be safely rendered
+        const source = typeof edge.source === 'object' ? JSON.stringify(edge.source) : String(edge.source || '');
+        const target = typeof edge.target === 'object' ? JSON.stringify(edge.target) : String(edge.target || '');
+        const value = typeof edge.value === 'object' ? 0 : Number(edge.value || 0);
+
+        return {
+          id: index + 1, // Add an ID for table key
+          source,
+          target,
+          value
+        };
+      });
+
+      dispatch(
+        addSessionData({
+          sessionId: sessionId,
+          data_profile: {
+            num_rows: edgesData.length,
+            num_columns: 3, // source, target, value
+            column_types: { source: 'string', target: 'string', value: 'number' },
+            numerical_columns: ['value'],
+            categorical_columns: ['source', 'target'],
+            temporal_columns: [],
+            geographic_columns: [],
+            statistical_summary: {},
+            correlation_matrix: {},
+            has_time_series: false,
+            has_hierarchical: true,
+            has_network_structure: true,
+            has_geographic_data: false,
+            null_percentages: {},
+            unique_ratios: {},
+            suggested_patterns: chartResult.patterns_detected?.map(p => p.pattern) || [],
+          },
+          recommendations: chartResult.recommendations,
+          sample_data: sampleData, // Properly formatted sample data
+          chartData: chartResult.data,
+          chartConfig: chartResult.chart_configuration,
+          patternsDetected: chartResult.patterns_detected,
+          original_payload: chartResult.original_payload || { links: [], nodes: [] },
+        })
+      );
 
       dispatch(
         addUploadRecord({
-          sessionId: result.session_id,
+          sessionId: sessionId,
           fileName: selectedFile.name,
           description: message.trim() || "No description provided",
         })
@@ -111,7 +152,7 @@ export default function HomeComponent() {
 
       // Success animation delay before navigation
       setTimeout(() => {
-        router.push(`/new/${result.session_id}`);
+        router.push(`/new/${sessionId}`);
       }, 1000);
 
       // Reset form after a delay
@@ -124,8 +165,8 @@ export default function HomeComponent() {
         setIsProcessing(false);
       }, 1500);
     } catch (err) {
-      console.error("Upload failed:", err);
-      setCurrentStep("Upload failed");
+      console.error("Analysis failed:", err);
+      setCurrentStep("Analysis failed");
       setIsProcessing(false);
 
       // Error shake animation
@@ -135,7 +176,7 @@ export default function HomeComponent() {
         setTimeout(() => container.classList.remove("animate-shake"), 500);
       }
 
-      alert("Upload failed. Please try again.");
+      alert("Analysis failed. Please try again.");
       setUploadProgress(0);
       setCurrentStep("");
     }

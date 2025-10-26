@@ -109,7 +109,7 @@ const DataComponent = ({ sessionId }: DataComponentProps) => {
                     >
                       {typeof item[header] === "number"
                         ? item[header].toLocaleString()
-                        : item[header]}
+                        : String(item[header] || "")}
                     </TableCell>
                   ))}
                 </TableRow>

@@ -36,6 +36,9 @@ const RecommendationComponent = ({
         return <ChartScatter className="h-5 w-5" />;
       case "pie_chart":
         return <PieChart className="h-5 w-5" />;
+      case "force_directed_graph":
+      case "forcedirectedgraph":
+        return <Activity className="h-5 w-5" />;
       default:
         return <TrendingUp className="h-5 w-5" />;
     }
@@ -63,8 +66,8 @@ const RecommendationComponent = ({
 
   if (!sessionData?.recommendations) {
     return (
-      <div className="px-6 py-8">
-        <div className="mb-6">
+      <div className="px-6 py-8 space-y-8">
+        <div>
           <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-slate-600" />
             Chart Recommendations
@@ -84,7 +87,7 @@ const RecommendationComponent = ({
                 No Recommendations Available
               </h3>
               <p className="text-sm text-slate-600 max-w-md">
-                {` Upload and analyze your data to receive personalized chart recommendations 
+                {` Upload and analyze your data to receive personalized chart recommendations
                 based on your dataset's characteristics.`}
               </p>
             </div>
