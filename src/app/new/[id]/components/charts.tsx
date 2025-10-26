@@ -20,6 +20,8 @@ import D3Heatmap from "../../componets/Charts/HeatMap";
 import ForceDirectedGraph from "../../componets/Charts/ForceDirectedGraph";
 import SunburstChart from "../../componets/Charts/Sunburst";
 import BoxPlotChart from "../../componets/Charts/BoxPlot";
+import HierarchicalEdgeBundling from "../../componets/Charts/HierarchicalEdgeBundling";
+import HeatmapChart from "../../componets/Charts/HeatmapChart";
 
 interface D3ChartProps {
   sessionId: string;
@@ -40,6 +42,7 @@ const CHART_TYPE_MAP: Record<string, string> = {
   force_directed_graph: "force_graph",
   sunburst: "sunburst",
   box_plot: "boxplot",
+  hierarchical_edge_bundling: "hierarchical_edge_bundling",
 };
 
 const D3Chart = ({ sessionId }: D3ChartProps) => {
@@ -109,6 +112,8 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
 console.log(mappedType);
 
     switch (mappedType) {
+      case "heatmap":
+        return <HeatmapChart data={chartData} />;
       case "bar":
         return <BarChart data={chartData} />;
       case "scatter":
@@ -137,6 +142,8 @@ console.log(mappedType);
         return <SunburstChart data={chartData} />;
       case "boxPlot":
         return <BoxPlotChart data={chartData} />;
+      case "hierarchicalEdgeBundling":
+        return <HierarchicalEdgeBundling data={chartData} />;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
