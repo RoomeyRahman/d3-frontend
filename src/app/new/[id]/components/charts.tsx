@@ -6,6 +6,7 @@ import { useGenerateChartMutation } from "@/lib/api/uploadApi";
 import { updateChartData } from "@/lib/features/sessionSlice";
 import type { Recommendation } from "@/lib/api/uploadApi";
 
+import ArcDiagram from "../../componets/Charts/ArcDiagram";
 import BarChart from "../../componets/Charts/BarChart";
 import ScatterPlot from "../../componets/Charts/ScatterPlot";
 import LineChart from "../../componets/Charts/LineChart";
@@ -43,6 +44,7 @@ const CHART_TYPE_MAP: Record<string, string> = {
   sunburst: "sunburst",
   box_plot: "boxplot",
   hierarchical_edge_bundling: "hierarchical_edge_bundling",
+  arc_diagram: "arc_diagram",
 };
 
 const D3Chart = ({ sessionId }: D3ChartProps) => {
@@ -116,8 +118,6 @@ console.log(mappedType);
         return <HeatmapChart data={chartData} />;
       case "bar":
         return <BarChart data={chartData} />;
-      case "scatter":
-        return <ScatterPlot data={chartData} />;
       case "line":
         return <LineChart data={chartData} />;
       case "pie":
@@ -144,6 +144,10 @@ console.log(mappedType);
         return <BoxPlotChart data={chartData} />;
       case "hierarchicalEdgeBundling":
         return <HierarchicalEdgeBundling data={chartData} />;
+      case "scatter":
+        return <Scatter data={chartData} />;
+      case "arcDiagram":
+        return <ArcDiagram data={chartData} />;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-64 text-gray-500">
@@ -224,11 +228,7 @@ console.log(mappedType);
       </div>
 
       {/* Error alert */}
-      {error && (
-        <div className="mt-6 p-3 bg-red-50 border border-red-400 text-red-700 rounded-lg text-sm">
-          {typeof error === 'object' && 'data' in error ? (error as { data?: { detail?: string } }).data?.detail : 'An error occurred'}
-        </div>
-      )}
+    
 
       {/* Chart Type Dropdown */}
       <div className="relative mt-6 flex items-center justify-end">
