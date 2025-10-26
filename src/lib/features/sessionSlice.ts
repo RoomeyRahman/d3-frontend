@@ -6,9 +6,19 @@ import type {
   DataProfile,
 } from "../api/uploadApi";
 
+export interface ExtendedSessionData extends SessionData {
+  chartData?: any[];
+  chartConfig?: any;
+  patternsDetected?: any[];
+  original_payload?: {
+    links: { source: string; target: string; value: number }[];
+    nodes: { id: string; group: number }[];
+  };
+}
+
 interface SessionState {
   currentSessionId: string | null;
-  sessions: Record<string, SessionData>;
+  sessions: Record<string, ExtendedSessionData>;
   uploadHistory: Array<{
     sessionId: string;
     fileName: string;
@@ -65,9 +75,17 @@ const sessionSlice = createSlice({
         data_profile: DataProfile;
         recommendations: Recommendation[];
         sample_data: any[];
+        chartData?: any[];
+        chartConfig?: any;
+        patternsDetected?: any[];
+        original_payload?: {
+          type: string;
+          nodes: { id: string; group: number }[];
+          links: { source: string; target: string; value: number }[];
+        };
       }>
     ) => {
-      const { sessionId, data_profile, recommendations, sample_data } =
+      const { sessionId, data_profile, recommendations, sample_data, chartData, chartConfig, patternsDetected, original_payload } =
         action.payload;
       state.sessions[sessionId] = {
         session_id: sessionId,
@@ -76,6 +94,10 @@ const sessionSlice = createSlice({
         sample_data,
         rag_enhanced: true,
         conversation_history: [],
+        chartData,
+        chartConfig,
+        patternsDetected,
+        original_payload,
       };
       saveToLocalStorage(state);
     },
@@ -106,6 +128,28 @@ const sessionSlice = createSlice({
       state.currentSessionId = null;
       saveToLocalStorage(state);
     },
+
+    updateChartData: (
+      state,
+      action: PayloadAction<{
+        sessionId: string;
+        chartData: any[];
+        chartConfig?: any;
+        patternsDetected?: any[];
+      }>
+    ) => {
+      const { sessionId, chartData, chartConfig, patternsDetected } = action.payload;
+      if (state.sessions[sessionId]) {
+        state.sessions[sessionId].chartData = chartData;
+        if (chartConfig !== undefined) {
+          state.sessions[sessionId].chartConfig = chartConfig;
+        }
+        if (patternsDetected !== undefined) {
+          state.sessions[sessionId].patternsDetected = patternsDetected;
+        }
+        saveToLocalStorage(state);
+      }
+    },
   },
 });
 
@@ -115,5 +159,6 @@ export const {
   addUploadRecord,
   clearSession,
   clearAllSessions,
+  updateChartData,
 } = sessionSlice.actions;
 export default sessionSlice.reducer;

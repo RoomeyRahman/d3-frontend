@@ -16,6 +16,40 @@ export interface UploadResponse {
   sample_data?: any[];
 }
 
+export interface ChartRecommendationResponse {
+  recommendations: Recommendation[];
+  data: Array<{
+    name: string;
+    role: string;
+    df: any[];
+  }>;
+  patterns_detected: Array<{
+    pattern: string;
+    confidence: number;
+    description: string;
+  }>;
+  chart_configuration: {
+    chartType: string;
+    dataMapping: any;
+    dimensions: any;
+    scales: any;
+    axes: any;
+    legend: any;
+    tooltip: any;
+    interactions: any;
+    styling: any;
+    chartSpecific: any;
+    metadata: any;
+    accessibility: any;
+    performance: any;
+  };
+  original_payload: {
+    type: string;
+    nodes: { id: string; group: number }[];
+    links: { source: string; target: string; value: number }[];
+  };
+}
+
 export interface ChartRequest {
   session_id: string;
   chart_type: string;
@@ -108,6 +142,24 @@ export const uploadApi = createApi({
       invalidatesTags: ["Chart"],
     }),
 
+    getChartRecommendations: builder.mutation<ChartRecommendationResponse, UploadRequest>({
+      query: ({ file, description }) => {
+        const formData = new FormData();
+        formData.append("file", file, file.name);
+
+        if (description?.trim()) {
+          formData.append("description", description.trim());
+        }
+
+        return {
+          url: "https://d47469d6417f.ngrok-free.app/api/v1/charts/recommend",
+          method: "POST",
+          body: formData,
+        };
+      },
+      invalidatesTags: ["Chart"],
+    }),
+
     getSessionById: builder.query<SessionData, string>({
       query: (sessionId) => ({
         url: `/api/data/session/${sessionId}`,
@@ -121,5 +173,6 @@ export const uploadApi = createApi({
 export const {
   useUploadFileMutation,
   useGenerateChartMutation,
+  useGetChartRecommendationsMutation,
   useGetSessionByIdQuery,
 } = uploadApi;
