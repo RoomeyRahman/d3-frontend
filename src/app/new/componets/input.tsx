@@ -94,8 +94,7 @@ export default function HomeComponent() {
       dispatch(setCurrentSession(sessionId));
 
       // Store session data with chart recommendations
-      const edgesData = chartResult.data.find(item => item.name === 'edges')?.df || [];
-      const nodesData = chartResult.data.find(item => item.name === 'nodes')?.df || [];
+      const edgesData = chartResult.data?.find(item => item.name === 'links')?.df || [];
 
       // Create sample data for display - ensure all values are primitives
       const sampleData = edgesData.slice(0, 10).map((edge, index) => {
@@ -110,7 +109,9 @@ export default function HomeComponent() {
           target,
           value
         };
-      });
+      }).filter(item => item.source && item.target); // Filter out invalid entries
+
+      const chartDataForComponent = chartResult.chart_configuration;
 
       dispatch(
         addSessionData({
@@ -135,7 +136,7 @@ export default function HomeComponent() {
           },
           recommendations: chartResult.recommendations,
           sample_data: sampleData, // Properly formatted sample data
-          chartData: chartResult.data,
+          chartData: chartDataForComponent,
           chartConfig: chartResult.chart_configuration,
           patternsDetected: chartResult.patterns_detected,
           original_payload: chartResult.original_payload || { links: [], nodes: [] },
@@ -393,7 +394,7 @@ export default function HomeComponent() {
                       clipRule="evenodd"
                     />
                   </svg>
-                  {error?.data?.detail || "An error occurred"}
+                  {error && 'data' in error && error.data && typeof error.data === 'object' && 'detail' in error.data ? String((error.data as { detail?: string }).detail) : "An error occurred"}
                 </div>
               </div>
             )}

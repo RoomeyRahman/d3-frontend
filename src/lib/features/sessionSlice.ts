@@ -7,7 +7,7 @@ import type {
 } from "../api/uploadApi";
 
 export interface ExtendedSessionData extends SessionData {
-  chartData?: any[];
+  chartData?: any;
   chartConfig?: any;
   patternsDetected?: any[];
   original_payload?: {
@@ -75,7 +75,7 @@ const sessionSlice = createSlice({
         data_profile: DataProfile;
         recommendations: Recommendation[];
         sample_data: any[];
-        chartData?: any[];
+        chartData?: any;
         chartConfig?: any;
         patternsDetected?: any[];
         original_payload?: {
@@ -133,7 +133,7 @@ const sessionSlice = createSlice({
       state,
       action: PayloadAction<{
         sessionId: string;
-        chartData: any[];
+        chartData: any;
         chartConfig?: any;
         patternsDetected?: any[];
       }>

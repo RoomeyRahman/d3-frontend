@@ -1,0 +1,416 @@
+
+    "chart_configuration": {
+        "chartType": "heatmap",
+        "dataMapping": {
+            "x": "state",
+            "y": "id"
+        },
+        "dimensions": {
+            "width": 800,
+            "height": 600,
+            "margin": {
+                "top": 20,
+                "right": 20,
+                "bottom": 40,
+                "left": 60
+            }
+        },
+        "scales": {
+            "x": {
+                "type": "band",
+                "domain": "auto"
+            },
+            "y": {
+                "type": "log",
+                "domain": "auto",
+                "clamp": true
+            }
+        },
+        "axes": {
+            "x": {
+                "show": true,
+                "label": "X Axis"
+            },
+            "y": {
+                "show": true,
+                "label": "Y Axis"
+            }
+        },
+        "legend": {
+            "show": false,
+            "maxItems": 10,
+            "scrollable": true
+        },
+        "tooltip": {
+            "enabled": true,
+            "fields": [
+                "id",
+                "state",
+                "county"
+            ]
+        },
+        "interactions": {
+            "zoom": false,
+            "pan": false,
+            "hover": true
+        },
+        "styling": {
+            "colorScheme": "category10"
+        },
+        "chartSpecific": {},
+        "metadata": {
+            "generated_at": "2025-10-28T07:59:11.865370",
+            "fallback_mode": true,
+            "llm_provider": "none",
+            "validation": {
+                "valid": true,
+                "error_count": 0,
+                "warning_count": 0,
+                "errors": [],
+                "warnings": []
+            },
+            "rag_context_categories": 10,
+            "rag_docs_total": 30,
+            "patterns_detected": 10,
+            "tables_count": 1,
+            "service_version": "1.0.0"
+        },
+        "data": {
+            "values": [
+                {
+                    "id": "01001",
+                    "state": "Alabama",
+                    "county": "Autauga County",
+                    "rate": 5.1
+                },
+                {
+                    "id": "01003",
+                    "state": "Alabama",
+                    "county": "Baldwin County",
+                    "rate": 4.9
+                },
+                {
+                    "id": "01005",
+                    "state": "Alabama",
+                    "county": "Barbour County",
+                    "rate": 8.6
+                },
+                {
+                    "id": "01007",
+                    "state": "Alabama",
+                    "county": "Bibb County",
+                    "rate": 6.2
+                }
+            ]
+        },
+        "performance": {}
+    }
+     "chart_configuration": {
+        "chartType": "scatter",
+        "dataMapping": {
+            "x": "state",
+            "y": "id"
+        },
+        "dimensions": {
+            "width": 800,
+            "height": 600,
+            "margin": {
+                "top": 20,
+                "right": 20,
+                "bottom": 40,
+                "left": 60
+            }
+        },
+        "scales": {
+            "x": {
+                "type": "band",
+                "domain": "auto"
+            },
+            "y": {
+                "type": "log",
+                "domain": "auto",
+                "clamp": true
+            }
+        },
+        "axes": {
+            "x": {
+                "show": true,
+                "label": "X Axis"
+            },
+            "y": {
+                "show": true,
+                "label": "Y Axis"
+            }
+        },
+        "legend": {
+            "show": false,
+            "maxItems": 10,
+            "scrollable": true
+        },
+        "tooltip": {
+            "enabled": true,
+            "fields": [
+                "id",
+                "state",
+                "county"
+            ]
+        },
+        "interactions": {
+            "zoom": false,
+            "pan": false,
+            "hover": true
+        },
+        "styling": {
+            "colorScheme": "category10"
+        },
+        "chartSpecific": {},
+        "metadata": {
+            "generated_at": "2025-10-28T08:05:19.317716",
+            "fallback_mode": true,
+            "llm_provider": "none",
+            "validation": {
+                "valid": true,
+                "error_count": 0,
+                "warning_count": 0,
+                "errors": [],
+                "warnings": []
+            },
+            "rag_context_categories": 10,
+            "rag_docs_total": 30,
+            "patterns_detected": 12,
+            "tables_count": 1,
+            "service_version": "1.0.0"
+        },
+        "data": {
+            "values": [
+                {
+                    "id": 1001,
+                    "state": "Alabama",
+                    "county": "Autauga County",
+                    "rate": 5.1
+                },
+                {
+                    "id": 1003,
+                    "state": "Alabama",
+                    "county": "Baldwin County",
+                    "rate": 4.9
+                },
+                {
+                    "id": 1005,
+                    "state": "Alabama",
+                    "county": "Barbour County",
+                    "rate": 8.6
+                }
+                {
+                    "id": 72153,
+                    "state": "Puerto Rico",
+                    "county": "Yauco Municipio",
+                    "rate": 18.0
+                }
+            ]
+        },
+        "performance": {}
+    }
+
+     "chart_configuration": {
+        "chartType": "forceDirectedGraph",
+        "dataMapping": {
+            "x": "source",
+            "y": "weight"
+        },
+        "dimensions": {
+            "width": 800,
+            "height": 600,
+            "margin": {
+                "top": 20,
+                "right": 20,
+                "bottom": 40,
+                "left": 60
+            }
+        },
+        "scales": {
+            "x": {
+                "type": "band",
+                "domain": "auto"
+            },
+            "y": {
+                "type": "log",
+                "domain": "auto",
+                "clamp": true
+            }
+        },
+        "axes": {
+            "x": {
+                "show": true,
+                "label": "X Axis"
+            },
+            "y": {
+                "show": true,
+                "label": "Y Axis"
+            }
+        },
+        "legend": {
+            "show": false,
+            "maxItems": 10,
+            "scrollable": true
+        },
+        "tooltip": {
+            "enabled": true,
+            "fields": [
+                "source",
+                "target",
+                "weight"
+            ]
+        },
+        "interactions": {
+            "zoom": false,
+            "pan": false,
+            "hover": true
+        },
+        "styling": {
+            "colorScheme": "category10"
+        },
+        "chartSpecific": {},
+        "metadata": {
+            "generated_at": "2025-10-28T08:08:05.772855",
+            "fallback_mode": true,
+            "llm_provider": "none",
+            "validation": {
+                "valid": false,
+                "error_count": 1,
+                "warning_count": 0,
+                "errors": [
+                    "Network chart requires 'nodes' in dataMapping"
+                ],
+                "warnings": []
+            },
+            "rag_context_categories": 10,
+            "rag_docs_total": 30,
+            "patterns_detected": 10,
+            "tables_count": 2,
+            "service_version": "1.0.0"
+        },
+        "data": {
+            "nodes": [
+                {
+                    "id": "Myriel",
+                    "group": 1
+                },
+                {
+                    "id": "Napoleon",
+                    "group": 1
+                },
+                
+                {
+                    "source": "Mme.Hucheloup",
+                    "target": "Gavroche",
+                    "value": 1
+                },
+                {
+                    "source": "Mme.Hucheloup",
+                    "target": "Enjolras",
+                    "value": 1
+                }
+            ]
+        },
+        "performance": {}
+    }
+
+     "chart_configuration": {
+        "chartType": "scatter",
+        "dataMapping": {
+            "x": "carat",
+            "y": "carat"
+        },
+        "dimensions": {
+            "width": 800,
+            "height": 600,
+            "margin": {
+                "top": 20,
+                "right": 20,
+                "bottom": 40,
+                "left": 60
+            }
+        },
+        "scales": {
+            "x": {
+                "type": "band",
+                "domain": "auto"
+            },
+            "y": {
+                "type": "log",
+                "domain": "auto",
+                "clamp": true
+            }
+        },
+        "axes": {
+            "x": {
+                "show": true,
+                "label": "X Axis"
+            },
+            "y": {
+                "show": true,
+                "label": "Y Axis"
+            }
+        },
+        "legend": {
+            "show": false,
+            "maxItems": 10,
+            "scrollable": true
+        },
+        "tooltip": {
+            "enabled": true,
+            "fields": [
+                "carat",
+                "price"
+            ]
+        },
+        "interactions": {
+            "zoom": false,
+            "pan": false,
+            "hover": true
+        },
+        "styling": {
+            "colorScheme": "category10"
+        },
+        "chartSpecific": {},
+        "metadata": {
+            "generated_at": "2025-10-28T08:09:48.041061",
+            "fallback_mode": true,
+            "llm_provider": "none",
+            "validation": {
+                "valid": true,
+                "error_count": 0,
+                "warning_count": 0,
+                "errors": [],
+                "warnings": []
+            },
+            "rag_context_categories": 10,
+            "rag_docs_total": 30,
+            "patterns_detected": 10,
+            "tables_count": 1,
+            "service_version": "1.0.0"
+        },
+        "data": {
+            "values": [
+               
+                {
+                    "carat": 0.53,
+                    "price": 2290
+                },
+                {
+                    "carat": 0.7,
+                    "price": 2290
+                },
+                {
+                    "carat": 0.56,
+                    "price": 2290
+                },
+
+            ]
+        },
+        "performance": {
+            "sampling": true,
+            "sampleSize": 10000
+        }
+    }
