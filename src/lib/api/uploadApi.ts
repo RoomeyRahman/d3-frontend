@@ -152,7 +152,7 @@ export const uploadApi = createApi({
         }
 
         return {
-          url: "https://b32cf04c77ff.ngrok-free.app/api/v1/charts/recommend",
+          url: "https://142e41dff8ca.ngrok-free.app/api/v1/charts/recommend",
           method: "POST",
           body: formData,
         };
