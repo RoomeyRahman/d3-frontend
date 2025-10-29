@@ -116,6 +116,7 @@ export default function HomeComponent() {
       dispatch(
         addSessionData({
           sessionId: sessionId,
+          dataset_id: "2a1cfce4f1d0de2a393b59fa893687c82d01b2de85f720b0becdb6a7cb9b02ab",
           data_profile: {
             num_rows: edgesData.length,
             num_columns: 3, // source, target, value
