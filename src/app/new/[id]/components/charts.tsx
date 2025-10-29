@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useAppSelector } from "@/lib/hooks";
 import { useGenerateChartMutation } from "@/lib/api/uploadApi";
 import type { Recommendation } from "@/lib/api/uploadApi";
@@ -15,10 +15,11 @@ import AreaChart from "../../componets/Charts/AreaChart";
 import TreemapChart from "../../componets/Charts/TreeMapChart";
 import ForceDirectedNetwork from "../../componets/Charts/ForceDirected";
 import SankeyDiagram from "../../componets/Charts/Sankey";
-import D3Heatmap from "../../componets/Charts/HeatMap";
 import DonutChart from "../../componets/Charts/DonutChart";
 import DensityPlot from "../../componets/Charts/DensityPlot";
-import Sunburst from "../../componets/Charts/Sunburst";
+import { SunburstChart } from "../../componets/Charts/Sunburst";
+import DotPlotChart from "../../componets/Charts/DotPlot";
+import { HeatmapChart } from "../../componets/Charts/HeatmapChart";
 
 interface D3ChartProps {
   sessionId: string;
@@ -33,7 +34,7 @@ const CHART_TYPE_MAP: Record<string, string> = {
   area_chart: "area",
   choropleth: "choropleth",
   treemap: "treemap",
-  force_directed: "force_network",
+  force_directed: "forceDirectedGraph",
   sankey: "sankey",
   heatmap: "heatmap",
   donut_chart: "donut",
@@ -45,131 +46,98 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
   const [selectedChart, setSelectedChart] = useState<string>("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [chartData, setChartData] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
+  const [currentChartData, setCurrentChartData] = useState<any>(null);
+  const [pendingChartType, setPendingChartType] = useState<string>("");
 
   const sessionData = useAppSelector(
     (state) => state.session.sessions[sessionId]
   );
-  const [generateChart, { isLoading, error }] = useGenerateChartMutation();
 
-  useEffect(() => setMounted(true), []);
+  // Use mutation hook correctly
+  const [generateChart, { data: chartData, isLoading, error }] =
+    useGenerateChartMutation();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (sessionData?.recommendations) {
       setRecommendations(sessionData.recommendations);
-      if (sessionData.recommendations.length > 0) {
+      if (sessionData.recommendations.length > 0 && !selectedChart) {
         setSelectedChart(sessionData.recommendations[0].chart_type);
       }
     }
-  }, [sessionData]);
-
-  // Use existing chartData from sessionData if available
-  useEffect(() => {
-    if (sessionData?.chartData) {
-      setChartData(sessionData.chartData);
-    }
-  }, [sessionData?.chartData]);
-
-  const handleGenerateChart = useCallback(async () => {
-    if (!selectedChart || !sessionId || !mounted) return;
-
-    try {
-      const result = await generateChart({
-        session_id: sessionId,
-        chart_type: selectedChart,
-      }).unwrap();
-      setChartData(result);
-    } catch (err) {
-      console.error("Chart generation failed:", err);
-      // Fallback to sessionData.chartData if API fails
-      if (sessionData?.chartData) {
-        setChartData(sessionData.chartData);
-      }
-    }
-  }, [selectedChart, sessionId, mounted, generateChart, sessionData]);
+  }, [sessionData, selectedChart]);
 
   useEffect(() => {
-    if (mounted && selectedChart && sessionId) {
-      handleGenerateChart();
+    if (mounted && selectedChart && sessionData?.dataset_id) {
+      // Set pending chart type to show loading state
+      setPendingChartType(selectedChart);
+      generateChart({
+        dataset_id: sessionData.dataset_id,
+        target_chart: selectedChart,
+      });
     }
-  }, [mounted, selectedChart, sessionId, handleGenerateChart]);
+  }, [selectedChart, sessionData?.dataset_id, mounted, generateChart]);
+
+  useEffect(() => {
+    if (chartData && !isLoading) {
+      setCurrentChartData(chartData);
+      setPendingChartType(""); // Clear pending state when data arrives
+    }
+  }, [chartData, isLoading]);
 
   const renderChart = () => {
-    if (!chartData) return null;
+    if (!currentChartData) return null;
 
-    const chartConfig = {
-      processed_data: chartData.data?.flat_data || [],
-      field_mappings: chartData.dataMapping || {},
-      chart_config: {
-        dimensions: chartData.dimensions || {
-          width: 800,
-          height: 600,
-          margin: { top: 20, right: 20, bottom: 40, left: 56 }
-        },
-        scales: chartData.scales,
-        axes: chartData.axes,
-        legend: chartData.legend,
-      }
-    };
+    const mappedType = CHART_TYPE_MAP[selectedChart] || selectedChart;
 
     switch (mappedType) {
       case "bar":
-        return <BarChart data={chartConfig} />;
+        return <BarChart data={currentChartData} />;
 
       case "line":
-        return <LineChart data={chartConfig.processed_data} xKey={chartConfig.field_mappings.x} yKey={chartConfig.field_mappings.y} />;
+        return <LineChart data={currentChartData} />;
 
       case "scatter":
-        return <ScatterPlot data={chartConfig} />;
+        return <ScatterPlot data={currentChartData} />;
 
       case "histogram":
-        return <Histogram data={chartConfig} />;
+        return <Histogram data={currentChartData} />;
 
       case "pie":
-        return <PieChart data={chartConfig} />;
+        return <PieChart data={currentChartData} />;
 
       case "donut":
-        return <DonutChart data={chartConfig.processed_data} labelField={chartConfig.field_mappings.label || "name"} valueField={chartConfig.field_mappings.value || "value"} />;
+        return <DonutChart data={currentChartData} />;
 
       case "area":
-        return <AreaChart data={chartConfig} />;
+        return <AreaChart data={currentChartData} />;
 
       case "heatmap":
-        return <D3Heatmap data={chartData.data} />;
+        return <HeatmapChart data={currentChartData} />;
+
       case "choropleth":
-        return <ChoroplethMap data={chartData} />;
+        return <ChoroplethMap data={currentChartData} />;
+
       case "treemap":
-        return <TreemapChart data={chartData} />;
-      case "force_network":
-        return <ForceDirectedNetwork data={chartData} />;
+        return <TreemapChart data={currentChartData} />;
+
+      case "forceDirectedGraph":
+        return <ForceDirectedNetwork data={currentChartData} />;
+
       case "sankey":
-        return <SankeyDiagram data={chartData} />;
+        return <SankeyDiagram data={currentChartData} />;
 
       case "density":
-        return <DensityPlot data={chartConfig.processed_data} />;
+        return <DensityPlot data={currentChartData} />;
+
       case "sunburst":
-        const flatData = chartConfig.processed_data;
-        const uniqueNodes = new Set<string>();
-        
-        flatData.forEach((item: Record<string, unknown>) => {
-          if (item.source) uniqueNodes.add(String(item.source));
-          if (item.target) uniqueNodes.add(String(item.target));
-        });
-        
-        const nodes = Array.from(uniqueNodes).map((id, index) => ({
-          id,
-          group: index % 10
-        }));
-        
-        const links = flatData.map((item: Record<string, unknown>) => ({
-          source: String(item.source),
-          target: String(item.target),
-          value: Number(item.value) || 1
-        }));
-        
-        console.log("Sunburst nodes:", nodes.length, "links:", links.length);
-        return <Sunburst data={{ type: "network", nodes, links }} />;
+        return <SunburstChart data={currentChartData} />;
+      case "dotPlot":
+        return <DotPlotChart data={currentChartData} />;
 
       default:
         return (
@@ -187,26 +155,39 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
           .replace(/\b\w/g, (l) => l.toUpperCase())
       : "";
 
+  // Show loading state for session data
   if (!sessionData) {
     return (
       <div className="rounded-xl bg-white px-6 py-12 shadow-md flex items-center justify-center">
-        <p className="text-gray-600">Loading session data...</p>
+        <div className="flex items-center space-x-2">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          <span className="text-gray-600">Loading session data...</span>
+        </div>
       </div>
     );
   }
-  const mappedType = CHART_TYPE_MAP[selectedChart] || selectedChart;
-    console.log("mappedType", mappedType);
-    console.log("chartData", sessionData);
-  return (
-    <div className=" w-full">
-      {/* Chart Container with fixed height */}
-      <div className="w-full flex flex-col items-center justify-center min-h-[300px]">
-        {!mounted ? (
+
+  // Don't render anything until mounted to avoid hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="w-full">
+        <div className="w-full flex flex-col items-center justify-center min-h-[300px]">
           <div className="flex items-center space-x-2">
             <div className="w-6 h-6 bg-gray-300 rounded-full animate-pulse"></div>
             <span className="text-gray-600">Preparing chart...</span>
           </div>
-        ) : isLoading ? (
+        </div>
+      </div>
+    );
+  }
+
+  const isLoadingChart = pendingChartType !== "" && isLoading;
+
+  return (
+    <div className="w-full">
+      {/* Chart Container with fixed height */}
+      <div className="w-full flex flex-col items-center justify-center min-h-[300px]">
+        {isLoadingChart ? (
           <div className="flex items-center space-x-2">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
             <span className="text-gray-600">
@@ -217,7 +198,7 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
           <p className="text-gray-600">
             Select a chart type to visualize your data
           </p>
-        ) : chartData ? (
+        ) : currentChartData ? (
           <div className="w-full">
             {renderChart()}
             <div className="text-center mt-6">
@@ -225,7 +206,7 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
                 {getChartTitle()}
               </h3>
               <p className="mt-2 text-sm text-gray-500">
-                {chartData.processed_data?.length || 0} Data Points •
+                {currentChartData.data?.flat_data?.length || 0} Data Points •
                 Interactive D3 Visualization
               </p>
             </div>
@@ -255,7 +236,7 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
       {/* Error alert */}
       {error && (
         <div className="mt-6 p-3 bg-red-50 border border-red-400 text-red-700 rounded-lg text-sm">
-          {(error as any).data?.detail as string}
+          {(error as any).data?.detail || "Failed to generate chart"}
         </div>
       )}
 
@@ -264,7 +245,7 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
         <button
           className="px-3 py-2 text-sm flex items-center space-x-1 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md disabled:opacity-50 transition-all"
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          disabled={isLoading || recommendations.length === 0}
+          disabled={isLoadingChart || recommendations.length === 0}
         >
           <span>{selectedChart ? getChartTitle() : "Select Chart Type"}</span>
           <svg
@@ -316,4 +297,3 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
 };
 
 export default D3Chart;
-

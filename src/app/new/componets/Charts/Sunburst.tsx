@@ -1,280 +1,205 @@
-"use client";
-import React, { useRef, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 
-interface Node {
-  id: string;
-  group: number;
-}
-
-interface Link {
-  source: string;
-  target: string;
-  value: number;
-}
-
-interface NetworkData {
-  type: string;
-  nodes: Node[];
-  links: Link[];
-}
-
-interface SunburstProps {
-  data: NetworkData;
-  width?: number;
-  height?: number;
-}
-
-export default function SunburstChart({ data, width = 800, height = 800 }: SunburstProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
+export const SunburstChart = ({ data }: any) => {
+  const svgRef = useRef(null);
+  const tooltipRef = useRef(null);
+  const [selectedNode, setSelectedNode] = useState(null);
 
   useEffect(() => {
-    if (!data || !data.nodes || !data.links) return;
+    if (!data || !data.chart_configuration) return;
 
-    // Convert network data to hierarchical structure
-    const hierarchyData = convertToHierarchy(data);
+    const config = data.chart_configuration;
+    const flatData = config.data.flat_data;
 
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    // Clear previous chart
+    d3.select(svgRef.current).selectAll("*").remove();
 
+    // Convert flat data to hierarchical structure
+    const hierarchyData = convertToHierarchy(flatData);
+
+    // Set up dimensions
+    const width = config.dimensions.width;
+    const height = config.dimensions.height;
     const radius = Math.min(width, height) / 2;
 
-    // Create container for zoom/pan
-    const container = svg.append("g")
+    // Create SVG
+    const svg = d3
+      .select(svgRef.current)
+      .attr("width", width)
+      .attr("height", height)
+      .append("g")
       .attr("transform", `translate(${width / 2},${height / 2})`);
 
+    // Create color scale
     const color = d3.scaleOrdinal(d3.schemeCategory10);
 
-    const partition = d3.partition<any>().size([2 * Math.PI, radius]);
+    // Create partition layout
+    const partition = d3.partition().size([2 * Math.PI, radius]);
 
+    // Create root hierarchy
     const root = d3
       .hierarchy(hierarchyData)
-      .sum((d: any) => d.value || 0)
-      .sort((a, b) => (b.value || 0) - (a.value || 0));
+      .sum((d) => d.value || 0)
+      .sort((a, b) => b.value - a.value);
 
     partition(root);
 
+    // Create arc generator
     const arc = d3
-      .arc<any>()
+      .arc()
       .startAngle((d) => d.x0)
       .endAngle((d) => d.x1)
       .innerRadius((d) => d.y0)
-      .outerRadius((d) => d.y1);
+      .outerRadius((d) => d.y1)
+      .padAngle(config.chartSpecific.padAngle)
+      .cornerRadius(config.chartSpecific.cornerRadius);
 
-    const path = container
+    // Create tooltip
+    const tooltip = d3.select(tooltipRef.current);
+
+    // Draw arcs
+    const paths = svg
       .selectAll("path")
-      .data(root.descendants())
+      .data(root.descendants().filter((d) => d.depth > 0))
       .enter()
       .append("path")
       .attr("d", arc)
-      .style("fill", (d) => {
-        if (d.depth === 0) return "#fff";
-        return color(d.data.group?.toString() || d.depth.toString());
-      })
+      .style("fill", (d) => color(d.data.name))
+      .style("opacity", config.styling.opacity)
       .style("stroke", "#fff")
-      .style("stroke-width", 2)
+      .style("stroke-width", config.styling.strokeWidth)
       .style("cursor", "pointer")
       .on("mouseover", function (event, d) {
-        d3.select(this).style("opacity", 0.7);
+        d3.select(this).style("opacity", 1).style("stroke-width", 2);
+
+        tooltip
+          .style("display", "block")
+          .style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY - 10}px`)
+          .html(`<strong>${d.data.name}</strong><br/>Value: ${d.value}`);
       })
-      .on("mouseout", function (event, d) {
-        d3.select(this).style("opacity", 1);
+      .on("mousemove", function (event) {
+        tooltip
+          .style("left", `${event.pageX + 10}px`)
+          .style("top", `${event.pageY - 10}px`);
+      })
+      .on("mouseout", function () {
+        d3.select(this)
+          .style("opacity", config.styling.opacity)
+          .style("stroke-width", config.styling.strokeWidth);
+
+        tooltip.style("display", "none");
+      })
+      .on("click", function (event, d) {
+        setSelectedNode(d.data);
       });
 
-    // Add labels
-    const text = container
+    // Add labels for larger segments
+    svg
       .selectAll("text")
-      .data(
-        root.descendants().filter((d) => {
-          return d.depth > 0 && d.x1 - d.x0 > 0.1;
-        })
-      )
+      .data(root.descendants().filter((d) => d.depth > 0 && d.x1 - d.x0 > 0.1))
       .enter()
       .append("text")
       .attr("transform", (d) => {
-        const x = (((d.x0 + d.x1) / 2) * 180) / Math.PI;
-        const y = (d.y0 + d.y1) / 2;
-        return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
+        const angle = (d.x0 + d.x1) / 2;
+        const radius = (d.y0 + d.y1) / 2;
+        return `rotate(${
+          (angle * 180) / Math.PI - 90
+        }) translate(${radius},0) rotate(${angle > Math.PI ? 180 : 0})`;
       })
       .attr("dy", "0.35em")
-      .attr("text-anchor", "middle")
+      .attr("text-anchor", (d) =>
+        (d.x0 + d.x1) / 2 > Math.PI ? "end" : "start"
+      )
       .style("font-size", "10px")
-      .style("fill", "#000")
+      .style("fill", "#333")
       .style("pointer-events", "none")
-      .text((d) => d.data.name);
+      .text((d) =>
+        d.data.name.length > 15
+          ? d.data.name.substring(0, 12) + "..."
+          : d.data.name
+      );
 
-    // Add title in center
-    container.append("text")
+    // Add center label
+    svg
+      .append("text")
       .attr("text-anchor", "middle")
       .attr("dy", "0.35em")
-      .style("font-size", "16px")
+      .style("font-size", "14px")
       .style("font-weight", "bold")
-      .text(hierarchyData.name);
+      .style("fill", "#333")
+      .text("Les Misérables");
+  }, [data]);
 
-    // Add zoom behavior
-    const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.5, 5])
-      .on("zoom", (event) => {
-        container.attr("transform", `translate(${width / 2},${height / 2}) ${event.transform}`);
-      });
+  // Convert flat data to hierarchical structure
+  const convertToHierarchy = (flatData) => {
+    const nodes = new Map();
+    const root = { name: "Root", children: [] };
 
-    svg.call(zoom);
+    // Create nodes
+    flatData.forEach((link) => {
+      if (!nodes.has(link.source)) {
+        nodes.set(link.source, { name: link.source, children: [] });
+      }
+      if (!nodes.has(link.target)) {
+        nodes.set(link.target, { name: link.target, value: 0 });
+      }
+    });
 
-    // Add zoom controls overlay
-    const controls = svg.append("g")
-      .attr("class", "zoom-controls")
-      .attr("transform", `translate(${width - 50}, 10)`);
+    // Build hierarchy
+    const connections = new Map();
+    flatData.forEach((link) => {
+      if (!connections.has(link.target)) {
+        connections.set(link.target, []);
+      }
+      connections
+        .get(link.target)
+        .push({ name: link.source, value: link.value });
+    });
 
-    // Zoom in button
-    const zoomInBtn = controls.append("g")
-      .style("cursor", "pointer")
-      .on("click", () => {
-        svg.transition().duration(300).call(zoom.scaleBy, 1.3);
-      });
+    // Get main characters (those who are targets)
+    const mainCharacters = [...new Set(flatData.map((d) => d.target))];
 
-    zoomInBtn.append("rect")
-      .attr("width", 30)
-      .attr("height", 30)
-      .attr("fill", "#fff")
-      .attr("stroke", "#333")
-      .attr("stroke-width", 1)
-      .attr("rx", 4);
+    mainCharacters.forEach((char) => {
+      const charNode = { name: char, children: [] };
+      const links = connections.get(char) || [];
 
-    zoomInBtn.append("text")
-      .attr("x", 15)
-      .attr("y", 20)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 20)
-      .attr("font-weight", "bold")
-      .attr("fill", "#333")
-      .text("+");
+      if (links.length > 0) {
+        charNode.children = links;
+      } else {
+        charNode.value = 1;
+      }
 
-    // Zoom out button
-    const zoomOutBtn = controls.append("g")
-      .attr("transform", "translate(0, 35)")
-      .style("cursor", "pointer")
-      .on("click", () => {
-        svg.transition().duration(300).call(zoom.scaleBy, 0.7);
-      });
+      root.children.push(charNode);
+    });
 
-    zoomOutBtn.append("rect")
-      .attr("width", 30)
-      .attr("height", 30)
-      .attr("fill", "#fff")
-      .attr("stroke", "#333")
-      .attr("stroke-width", 1)
-      .attr("rx", 4);
-
-    zoomOutBtn.append("text")
-      .attr("x", 15)
-      .attr("y", 20)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 20)
-      .attr("font-weight", "bold")
-      .attr("fill", "#333")
-      .text("−");
-
-    // Reset button
-    const resetBtn = controls.append("g")
-      .attr("transform", "translate(0, 70)")
-      .style("cursor", "pointer")
-      .on("click", () => {
-        svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
-      });
-
-    resetBtn.append("rect")
-      .attr("width", 30)
-      .attr("height", 30)
-      .attr("fill", "#fff")
-      .attr("stroke", "#333")
-      .attr("stroke-width", 1)
-      .attr("rx", 4);
-
-    resetBtn.append("text")
-      .attr("x", 15)
-      .attr("y", 20)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 16)
-      .attr("fill", "#333")
-      .text("⟲");
-
-  }, [data, width, height]);
+    return root;
+  };
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      <svg ref={svgRef} width={width} height={height} style={{ border: '1px solid #ddd' }}></svg>
-      <div style={{ 
-        position: 'absolute', 
-        bottom: 10, 
-        left: 10, 
-        background: 'rgba(255,255,255,0.9)', 
-        padding: '8px 12px', 
-        borderRadius: 4,
-        fontSize: 12,
-        border: '1px solid #ddd'
-      }}>
-        <strong>Controls:</strong> Scroll to zoom | Drag to pan | Hover segments for details
+    <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="bg-white rounded-lg shadow-xl p-6 max-w-6xl w-full">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+            Character Relationships - Les Misérables
+          </h1>
+          <p className="text-gray-600">
+            Interactive sunburst chart showing character connections. Hover over
+            segments for details.
+          </p>
+        </div>
+
+        <div className="flex flex-col items-center">
+          <svg ref={svgRef} className="drop-shadow-md"></svg>
+        </div>
+
+        <div
+          ref={tooltipRef}
+          className="absolute pointer-events-none bg-gray-900 text-white px-3 py-2 rounded shadow-lg text-sm"
+          style={{ display: "none" }}
+        ></div>
       </div>
     </div>
   );
-}
-
-// Convert network data to hierarchical structure
-function convertToHierarchy(data: NetworkData) {
-  const nodeMap = new Map(data.nodes.map((n) => [n.id, { ...n, children: [] as any[] }]));
-
-  // Find nodes with incoming links and their connection strength
-  const incomingLinks = new Map<string, { source: string; value: number }[]>();
-  
-  data.links.forEach((link) => {
-    if (!incomingLinks.has(link.target)) {
-      incomingLinks.set(link.target, []);
-    }
-    incomingLinks.get(link.target)!.push({ source: link.source, value: link.value });
-  });
-
-  // Find the root (node with most outgoing connections or first node)
-  const outgoingCount = new Map<string, number>();
-  data.links.forEach((link) => {
-    outgoingCount.set(link.source, (outgoingCount.get(link.source) || 0) + 1);
-  });
-
-  let rootId = data.nodes[0].id;
-  let maxOutgoing = 0;
-  outgoingCount.forEach((count, id) => {
-    if (count > maxOutgoing) {
-      maxOutgoing = count;
-      rootId = id;
-    }
-  });
-
-  const root = nodeMap.get(rootId);
-  const visited = new Set<string>([rootId]);
-
-  // Build hierarchy from links
-  function buildChildren(parentId: string) {
-    const children: any[] = [];
-    data.links.forEach((link) => {
-      if (link.source === parentId && !visited.has(link.target)) {
-        visited.add(link.target);
-        const childNode = nodeMap.get(link.target);
-        if (childNode) {
-          const child = {
-            name: childNode.id,
-            group: childNode.group,
-            value: link.value,
-            children: buildChildren(link.target),
-          };
-          children.push(child);
-        }
-      }
-    });
-    return children;
-  }
-
-  return {
-    name: root!.id,
-    group: root!.group,
-    children: buildChildren(rootId),
-  };
-}
+};

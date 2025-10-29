@@ -50,12 +50,12 @@ export interface ChartRecommendationResponse {
   };
 }
 
-export interface ChartRequest {
-  session_id: string;
-  chart_type: string;
+export interface GenerateChartRequest {
+  dataset_id: string;
+  target_chart: string;
 }
 
-export interface ChartResponse {
+export interface GenerateChartResponse {
   chart_type: string;
   html_code: string;
   javascript_code: string;
@@ -130,19 +130,10 @@ export const uploadApi = createApi({
       invalidatesTags: ["Upload"],
     }),
 
-    generateChart: builder.mutation<ChartResponse, ChartRequest>({
-      query: ({ session_id, chart_type }) => ({
-        url: "/api/data/prepared-data",
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: { session_id, chart_type },
-      }),
-      invalidatesTags: ["Chart"],
-    }),
-
-    getChartRecommendations: builder.mutation<ChartRecommendationResponse, UploadRequest>({
+    getChartRecommendations: builder.mutation<
+      ChartRecommendationResponse,
+      UploadRequest
+    >({
       query: ({ file, description }) => {
         const formData = new FormData();
         formData.append("file", file, file.name);
@@ -152,10 +143,42 @@ export const uploadApi = createApi({
         }
 
         return {
-          url: "https://142e41dff8ca.ngrok-free.app/api/v1/charts/recommend",
+          url: "/api/v1/charts/recommend",
           method: "POST",
           body: formData,
         };
+      },
+      invalidatesTags: ["Chart"],
+    }),
+
+    generateChart: builder.mutation<
+      GenerateChartResponse,
+      GenerateChartRequest
+    >({
+      query: ({ dataset_id, target_chart }) => ({
+        url: `/api/v1/charts/configure`,
+        method: "GET",
+        params: {
+          dataset_id,
+          target_chart,
+        },
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+      }),
+      transformResponse: (response: any) => {
+        // If we get HTML instead of JSON, throw an error
+        if (
+          typeof response === "string" &&
+          response.includes("<!DOCTYPE html>")
+        ) {
+          throw new Error(
+            "Received HTML instead of JSON - API endpoint may be misconfigured"
+          );
+        }
+        return response;
       },
       invalidatesTags: ["Chart"],
     }),
@@ -172,7 +195,7 @@ export const uploadApi = createApi({
 
 export const {
   useUploadFileMutation,
-  useGenerateChartMutation,
   useGetChartRecommendationsMutation,
   useGetSessionByIdQuery,
+  useGenerateChartMutation,
 } = uploadApi;
