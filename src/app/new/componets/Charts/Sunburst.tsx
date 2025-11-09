@@ -1,21 +1,105 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 
-export const SunburstChart = ({ data }: any) => {
-  const svgRef = useRef(null);
-  const tooltipRef = useRef(null);
-  const [selectedNode, setSelectedNode] = useState(null);
+interface CharacterNode {
+  name: string;
+  value?: number;
+  children?: CharacterNode[];
+}
+
+interface FlatDataItem {
+  source: string;
+  target: string;
+  value: number;
+}
+
+interface ChartConfiguration {
+  chartType: string;
+  dimensions: {
+    width: number;
+    height: number;
+  };
+  styling?: {
+    opacity?: number;
+    strokeWidth?: number;
+    colorScheme?: string;
+  };
+  chartSpecific?: {
+    padAngle?: number;
+    cornerRadius?: number;
+  };
+  data: {
+    flat_data: FlatDataItem[];
+  };
+}
+
+interface SunburstChartProps {
+  data: {
+    chart_configuration: ChartConfiguration;
+  };
+}
+
+export const SunburstChart: React.FC<SunburstChartProps> = ({ data }) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const [selectedNode, setSelectedNode] = useState<CharacterNode | null>(null);
 
   useEffect(() => {
-    if (!data || !data.chart_configuration) return;
+    if (!data || !data.chart_configuration || !svgRef.current) return;
 
     const config = data.chart_configuration;
     const flatData = config.data.flat_data;
+
+    if (!flatData || flatData.length === 0) return;
 
     // Clear previous chart
     d3.select(svgRef.current).selectAll("*").remove();
 
     // Convert flat data to hierarchical structure
+    const convertToHierarchy = (data: FlatDataItem[]): CharacterNode => {
+      const nodes = new Map<string, CharacterNode>();
+      const root: CharacterNode = { name: "Les Misérables", children: [] };
+
+      // Create nodes
+      data.forEach((link) => {
+        if (!nodes.has(link.source)) {
+          nodes.set(link.source, { name: link.source, children: [] });
+        }
+        if (!nodes.has(link.target)) {
+          nodes.set(link.target, { name: link.target, children: [] });
+        }
+      });
+
+      // Build hierarchy - group by target characters
+      const connections = new Map<string, CharacterNode[]>();
+      data.forEach((link) => {
+        if (!connections.has(link.target)) {
+          connections.set(link.target, []);
+        }
+        connections
+          .get(link.target)!
+          .push({ name: link.source, value: link.value });
+      });
+
+      // Get main characters (those who are targets)
+      const mainCharacters = [...new Set(data.map((d) => d.target))];
+
+      mainCharacters.forEach((char) => {
+        const charNode: CharacterNode = { name: char, children: [] };
+        const links = connections.get(char) || [];
+
+        if (links.length > 0) {
+          charNode.children = links;
+        } else {
+          charNode.value = 1;
+        }
+
+        root.children!.push(charNode);
+      });
+
+      return root;
+    };
+
     const hierarchyData = convertToHierarchy(flatData);
 
     // Set up dimensions
@@ -35,63 +119,68 @@ export const SunburstChart = ({ data }: any) => {
     const color = d3.scaleOrdinal(d3.schemeCategory10);
 
     // Create partition layout
-    const partition = d3.partition().size([2 * Math.PI, radius]);
+    const partition = d3.partition<CharacterNode>().size([2 * Math.PI, radius]);
 
     // Create root hierarchy
     const root = d3
       .hierarchy(hierarchyData)
       .sum((d) => d.value || 0)
-      .sort((a, b) => b.value - a.value);
+      .sort((a, b) => (b.value || 0) - (a.value || 0));
 
     partition(root);
 
     // Create arc generator
     const arc = d3
-      .arc()
+      .arc<d3.HierarchyRectangularNode<CharacterNode>>()
       .startAngle((d) => d.x0)
       .endAngle((d) => d.x1)
       .innerRadius((d) => d.y0)
       .outerRadius((d) => d.y1)
-      .padAngle(config.chartSpecific.padAngle)
-      .cornerRadius(config.chartSpecific.cornerRadius);
-
-    // Create tooltip
-    const tooltip = d3.select(tooltipRef.current);
+      .padAngle(config.chartSpecific?.padAngle || 0.005)
+      .cornerRadius(config.chartSpecific?.cornerRadius || 3);
 
     // Draw arcs
-    const paths = svg
+    svg
       .selectAll("path")
       .data(root.descendants().filter((d) => d.depth > 0))
       .enter()
       .append("path")
       .attr("d", arc)
       .style("fill", (d) => color(d.data.name))
-      .style("opacity", config.styling.opacity)
+      .style("opacity", config.styling?.opacity || 0.8)
       .style("stroke", "#fff")
-      .style("stroke-width", config.styling.strokeWidth)
+      .style("stroke-width", config.styling?.strokeWidth || 1)
       .style("cursor", "pointer")
-      .on("mouseover", function (event, d) {
+      .on("mouseover", function (event: MouseEvent, d) {
         d3.select(this).style("opacity", 1).style("stroke-width", 2);
 
-        tooltip
-          .style("display", "block")
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 10}px`)
-          .html(`<strong>${d.data.name}</strong><br/>Value: ${d.value}`);
+        if (tooltipRef.current) {
+          const tooltip = d3.select(tooltipRef.current);
+          tooltip
+            .style("display", "block")
+            .style("left", `${event.pageX + 10}px`)
+            .style("top", `${event.pageY - 10}px`)
+            .html(`<strong>${d.data.name}</strong><br/>Value: ${d.value || 0}`);
+        }
       })
-      .on("mousemove", function (event) {
-        tooltip
-          .style("left", `${event.pageX + 10}px`)
-          .style("top", `${event.pageY - 10}px`);
+      .on("mousemove", function (event: MouseEvent) {
+        if (tooltipRef.current) {
+          const tooltip = d3.select(tooltipRef.current);
+          tooltip
+            .style("left", `${event.pageX + 10}px`)
+            .style("top", `${event.pageY - 10}px`);
+        }
       })
       .on("mouseout", function () {
         d3.select(this)
-          .style("opacity", config.styling.opacity)
-          .style("stroke-width", config.styling.strokeWidth);
+          .style("opacity", config.styling?.opacity || 0.8)
+          .style("stroke-width", config.styling?.strokeWidth || 1);
 
-        tooltip.style("display", "none");
+        if (tooltipRef.current) {
+          d3.select(tooltipRef.current).style("display", "none");
+        }
       })
-      .on("click", function (event, d) {
+      .on("click", function (event: MouseEvent, d) {
         setSelectedNode(d.data);
       });
 
@@ -132,51 +221,6 @@ export const SunburstChart = ({ data }: any) => {
       .text("Les Misérables");
   }, [data]);
 
-  // Convert flat data to hierarchical structure
-  const convertToHierarchy = (flatData) => {
-    const nodes = new Map();
-    const root = { name: "Root", children: [] };
-
-    // Create nodes
-    flatData.forEach((link) => {
-      if (!nodes.has(link.source)) {
-        nodes.set(link.source, { name: link.source, children: [] });
-      }
-      if (!nodes.has(link.target)) {
-        nodes.set(link.target, { name: link.target, value: 0 });
-      }
-    });
-
-    // Build hierarchy
-    const connections = new Map();
-    flatData.forEach((link) => {
-      if (!connections.has(link.target)) {
-        connections.set(link.target, []);
-      }
-      connections
-        .get(link.target)
-        .push({ name: link.source, value: link.value });
-    });
-
-    // Get main characters (those who are targets)
-    const mainCharacters = [...new Set(flatData.map((d) => d.target))];
-
-    mainCharacters.forEach((char) => {
-      const charNode = { name: char, children: [] };
-      const links = connections.get(char) || [];
-
-      if (links.length > 0) {
-        charNode.children = links;
-      } else {
-        charNode.value = 1;
-      }
-
-      root.children.push(charNode);
-    });
-
-    return root;
-  };
-
   return (
     <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="bg-white rounded-lg shadow-xl p-6 max-w-6xl w-full">
@@ -194,9 +238,25 @@ export const SunburstChart = ({ data }: any) => {
           <svg ref={svgRef} className="drop-shadow-md"></svg>
         </div>
 
+        {selectedNode && (
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <h3 className="font-semibold text-lg text-blue-900 mb-2">
+              Selected Character
+            </h3>
+            <p className="text-blue-800">
+              <strong>Name:</strong> {selectedNode.name}
+            </p>
+            {selectedNode.value && (
+              <p className="text-blue-800">
+                <strong>Connections:</strong> {selectedNode.value}
+              </p>
+            )}
+          </div>
+        )}
+
         <div
           ref={tooltipRef}
-          className="absolute pointer-events-none bg-gray-900 text-white px-3 py-2 rounded shadow-lg text-sm"
+          className="absolute pointer-events-none bg-gray-900 text-white px-3 py-2 rounded shadow-lg text-sm z-50"
           style={{ display: "none" }}
         ></div>
       </div>

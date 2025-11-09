@@ -50,7 +50,7 @@ interface D3BrushEvent {
   type?: string;
 }
 
-const MasterScatterPlot: React.FC<MasterScatterPlotProps> = ({ data }) => {
+const ScatterPlot: React.FC<MasterScatterPlotProps> = ({ data }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const [brushSelection, setBrushSelection] = useState<
@@ -645,4 +645,4 @@ const MasterScatterPlot: React.FC<MasterScatterPlotProps> = ({ data }) => {
   );
 };
 
-export default MasterScatterPlot;
+export default ScatterPlot;

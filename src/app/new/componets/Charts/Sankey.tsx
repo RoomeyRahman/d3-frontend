@@ -1,385 +1,220 @@
-"use client";
-
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import * as d3 from "d3";
 
-interface SankeyLink {
-  depth_from_root: number;
-  children_count: number;
-  id: string;
-}
-
-interface SankeyData {
-  chart_type: string;
-  processed_data: {
-    links: SankeyLink[];
-  };
-  chart_config: {
-    dimensions: {
-      width: number;
-      height: number;
-      margin: {
-        top: number;
-        right: number;
-        bottom: number;
-        left: number;
-      };
-    };
-    color_scheme: {
-      range: string[];
-    };
-  };
-}
-
-interface SankeyProps {
-  data: SankeyData;
-}
-
-interface SankeyNode {
-  id: string;
-  name: string;
-  value: number;
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  sourceLinks?: SankeyProcessedLink[];
-  targetLinks?: SankeyProcessedLink[];
-}
-
-interface SankeyProcessedLink {
-  source: SankeyNode;
-  target: SankeyNode;
-  value: number;
-  y0?: number;
-  y1?: number;
-  width?: number;
-}
-
-const SankeyDiagram: React.FC<SankeyProps> = ({ data }) => {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [mounted, setMounted] = useState(false);
-  const [tooltip, setTooltip] = useState<{
-    show: boolean;
-    x: number;
-    y: number;
-    content: string;
-  }>({ show: false, x: 0, y: 0, content: "" });
-
-  // Handle hydration
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+export const SankeyDiagram = ({ data: chartData }) => {
+  const svgRef = useRef(null);
 
   useEffect(() => {
-    if (!mounted) return;
-    if (!data || !svgRef.current) return;
+    if (!chartData || !chartData.chart_configuration) return;
 
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    const config = chartData.chart_configuration;
+    const data = config.data;
 
-    const { width, height, margin } = data.chart_config.dimensions;
+    if (!data || !data.nodes || !data.links) return;
+
+    // Clear previous content
+    d3.select(svgRef.current).selectAll("*").remove();
+
+    const width = config.dimensions.width;
+    const height = config.dimensions.height;
+    const margin = config.dimensions.margin;
+    const nodeWidth = config.chartSpecific.nodeWidth;
+    const nodePadding = config.chartSpecific.nodePadding;
+
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
 
-    // Process the data to create proper Sankey nodes and links
-    const processedData = processDataForSankey(data.processed_data.links);
+    // Create SVG
+    const svg = d3
+      .select(svgRef.current)
+      .attr("width", width)
+      .attr("height", height);
 
-    if (!processedData.nodes.length || !processedData.links.length) {
-      svg
-        .append("text")
-        .attr("x", width / 2)
-        .attr("y", height / 2)
-        .attr("text-anchor", "middle")
-        .attr("class", "text-gray-500")
-        .text("No data available for Sankey diagram");
-      return;
-    }
-
-    // Create the main group
     const g = svg
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // Create Sankey layout
-    const sankey = createSankeyLayout(innerWidth, innerHeight);
-    const { nodes, links } = sankey(processedData);
+    // Create node and link maps
+    const nodeMap = new Map(data.nodes.map((d) => [d.id, { ...d }]));
+    const links = data.links.map((d) => ({
+      source: d.source,
+      target: d.target,
+      value: d.value,
+    }));
+
+    // Calculate node values
+    nodeMap.forEach((node) => {
+      node.sourceLinks = [];
+      node.targetLinks = [];
+      node.value = 0;
+    });
+
+    links.forEach((link) => {
+      const source = nodeMap.get(link.source);
+      const target = nodeMap.get(link.target);
+      if (source && target) {
+        link.sourceNode = source;
+        link.targetNode = target;
+        source.sourceLinks.push(link);
+        target.targetLinks.push(link);
+        source.value += link.value;
+      }
+    });
+
+    // Compute node depths and positions
+    const nodes = Array.from(nodeMap.values());
+
+    // Calculate depth for each node
+    nodes.forEach((node) => (node.depth = 0));
+    let changed = true;
+    let iterations = 0;
+    while (changed && iterations < 100) {
+      changed = false;
+      iterations++;
+      nodes.forEach((node) => {
+        node.targetLinks.forEach((link) => {
+          const sourceDepth = link.sourceNode.depth + 1;
+          if (node.depth < sourceDepth) {
+            node.depth = sourceDepth;
+            changed = true;
+          }
+        });
+      });
+    }
+
+    // Calculate reverse depth
+    const maxDepth = d3.max(nodes, (d) => d.depth) || 0;
+    nodes.forEach((node) => (node.height = maxDepth));
+    changed = true;
+    iterations = 0;
+    while (changed && iterations < 100) {
+      changed = false;
+      iterations++;
+      nodes.forEach((node) => {
+        node.sourceLinks.forEach((link) => {
+          const targetHeight = link.targetNode.height - 1;
+          if (node.height > targetHeight) {
+            node.height = targetHeight;
+            changed = true;
+          }
+        });
+      });
+    }
+
+    // Position nodes
+    const columns = d3.group(nodes, (d) => d.depth);
+    const columnWidth = innerWidth / (maxDepth + 1);
+
+    columns.forEach((columnNodes, depth) => {
+      const totalValue = d3.sum(columnNodes, (d) => d.value);
+      const scale =
+        (innerHeight - (columnNodes.length - 1) * nodePadding) / totalValue;
+
+      let y = 0;
+      columnNodes.sort((a, b) => a.group - b.group);
+      columnNodes.forEach((node) => {
+        node.x0 = depth * columnWidth;
+        node.x1 = node.x0 + nodeWidth;
+        node.y0 = y;
+        node.y1 = y + node.value * scale;
+        y = node.y1 + nodePadding;
+      });
+    });
+
+    // Position links
+    nodes.forEach((node) => {
+      node.sourceLinks.sort((a, b) => a.targetNode.y0 - b.targetNode.y0);
+      node.targetLinks.sort((a, b) => a.sourceNode.y0 - b.sourceNode.y0);
+    });
+
+    links.forEach((link) => {
+      const source = link.sourceNode;
+      const target = link.targetNode;
+
+      const sourceValue = d3.sum(source.sourceLinks, (d) => d.value);
+      const targetValue = d3.sum(target.targetLinks, (d) => d.value);
+
+      const sy = (source.y1 - source.y0) / sourceValue;
+      const ty = (target.y1 - target.y0) / targetValue;
+
+      link.width = link.value * Math.min(sy, ty);
+
+      link.y0 =
+        source.y0 +
+        d3.sum(
+          source.sourceLinks.slice(0, source.sourceLinks.indexOf(link)),
+          (d) => d.width
+        );
+      link.y1 =
+        target.y0 +
+        d3.sum(
+          target.targetLinks.slice(0, target.targetLinks.indexOf(link)),
+          (d) => d.width
+        );
+    });
 
     // Color scale
-    const colorScale = d3
-      .scaleOrdinal()
-      .domain(nodes.map((d) => d.name))
-      .range(data.chart_config.color_scheme.range);
+    const color = d3.scaleOrdinal(d3.schemeCategory10);
 
     // Draw links
     const link = g
       .append("g")
-      .attr("class", "links")
+      .attr("fill", "none")
       .selectAll("path")
       .data(links)
       .join("path")
-      .attr("d", sankeyLinkPath)
-      .attr("stroke", (d: any) => colorScale(d.source.name) as string)
-      .attr("stroke-opacity", 0.5)
-      .attr("stroke-width", (d: any) => Math.max(1, d.width))
-      .attr("fill", "none")
-      .style("cursor", "pointer")
-      .on("mouseover", function (event: MouseEvent, d: any) {
-        d3.select(this).attr("stroke-opacity", 0.8);
-        setTooltip({
-          show: true,
-          x: event.pageX + 10,
-          y: event.pageY - 10,
-          content: `${d.source.name} → ${d.target.name}<br/>Flow: ${d.value}`,
-        });
+      .attr("d", (d) => {
+        const x0 = d.sourceNode.x1;
+        const x1 = d.targetNode.x0;
+        const xi = d3.interpolateNumber(x0, x1);
+        const x2 = xi(0.5);
+        const y0 = d.y0 + d.width / 2;
+        const y1 = d.y1 + d.width / 2;
+        return `M${x0},${y0}C${x2},${y0} ${x2},${y1} ${x1},${y1}`;
       })
-      .on("mouseout", function () {
-        d3.select(this).attr("stroke-opacity", 0.5);
-        setTooltip((prev) => ({ ...prev, show: false }));
-      });
+      .attr("stroke", (d) => color(d.sourceNode.group))
+      .attr("stroke-width", (d) => Math.max(1, d.width))
+      .attr("opacity", config.styling.opacity)
+      .style("cursor", "pointer");
+
+    link
+      .append("title")
+      .text((d) => `${d.source} → ${d.target}\nValue: ${d.value}`);
 
     // Draw nodes
     const node = g
       .append("g")
-      .attr("class", "nodes")
       .selectAll("rect")
       .data(nodes)
       .join("rect")
-      .attr("x", (d: any) => d.x)
-      .attr("y", (d: any) => d.y)
-      .attr("width", (d: any) => d.width)
-      .attr("height", (d: any) => d.height)
-      .attr("fill", (d: any) => colorScale(d.name) as string)
-      .attr("stroke", "#000")
-      .attr("stroke-width", 0.5)
-      .style("cursor", "pointer")
-      .on("mouseover", function (event: MouseEvent, d: any) {
-        d3.select(this).attr("fill-opacity", 0.8);
-        setTooltip({
-          show: true,
-          x: event.pageX + 10,
-          y: event.pageY - 10,
-          content: `${d.name}<br/>Value: ${d.value}`,
-        });
-      })
-      .on("mouseout", function (event: MouseEvent, d: any) {
-        d3.select(this).attr("fill-opacity", 1);
-        setTooltip((prev) => ({ ...prev, show: false }));
-      });
+      .attr("x", (d) => d.x0)
+      .attr("y", (d) => d.y0)
+      .attr("height", (d) => Math.max(0, d.y1 - d.y0))
+      .attr("width", (d) => d.x1 - d.x0)
+      .attr("fill", (d) => color(d.group))
+      .attr("opacity", config.styling.fillOpacity)
+      .style("cursor", "pointer");
 
-    // Add node labels
+    node.append("title").text((d) => `${d.id}\nValue: ${d.value.toFixed(0)}`);
+
+    // Add labels
     g.append("g")
-      .attr("class", "labels")
+      .style("font", "10px sans-serif")
       .selectAll("text")
       .data(nodes)
       .join("text")
-      .attr("x", (d: any) => d.x + d.width / 2)
-      .attr("y", (d: any) => d.y + d.height / 2)
+      .attr("x", (d) => (d.x0 < innerWidth / 2 ? d.x1 + 6 : d.x0 - 6))
+      .attr("y", (d) => (d.y1 + d.y0) / 2)
       .attr("dy", "0.35em")
-      .attr("text-anchor", "middle")
-      .attr("font-size", "12px")
-      .attr("font-weight", "600")
-      .attr("fill", "black")
-      .text((d: any) => d.name)
+      .attr("text-anchor", (d) => (d.x0 < innerWidth / 2 ? "start" : "end"))
+      .text((d) => d.id)
+      .style("fill", "#333")
       .style("pointer-events", "none");
-    svg
-      .append("text")
-      .attr("x", width / 2)
-      .attr("y", margin.top / 2)
-      .attr("text-anchor", "middle")
-      .attr("font-size", "16px")
-      .attr("font-weight", "bold")
-      .attr("fill", "#333")
-      .text("Sankey Flow Diagram");
-  }, [data, mounted]);
-  if (!mounted) {
-    return (
-      <div
-        className="relative w-full flex items-center justify-center"
-        style={{ height: data.chart_config.dimensions.height }}
-      >
-        <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-gray-300 rounded-full animate-pulse"></div>
-          <span className="text-gray-600">Loading chart...</span>
-        </div>
-      </div>
-    );
-  }
+  }, [chartData]);
 
   return (
-    <div className="relative w-full">
-      <svg
-        ref={svgRef}
-        width={data.chart_config.dimensions.width}
-        height={data.chart_config.dimensions.height}
-        className="w-full h-auto"
-        style={{ maxWidth: "100%", height: "auto" }}
-      />
-
-      {tooltip.show && (
-        <div
-          className="absolute bg-gray-800 text-white px-3 py-2 rounded-lg text-sm pointer-events-none z-10 shadow-lg"
-          style={{
-            left: tooltip.x,
-            top: tooltip.y,
-            transform: "translate(-50%, -100%)",
-          }}
-          dangerouslySetInnerHTML={{ __html: tooltip.content }}
-        />
-      )}
+    <div className="w-full h-full flex items-center justify-center bg-gray-50 p-4">
+      <svg ref={svgRef}></svg>
     </div>
   );
 };
-
-// Helper function to process data for Sankey diagram
-function processDataForSankey(links: SankeyLink[]): {
-  nodes: SankeyNode[];
-  links: SankeyProcessedLink[];
-} {
-  const nodeMap = new Map<string, SankeyNode>();
-  const processedLinks: SankeyProcessedLink[] = [];
-
-  // Create nodes from unique depth levels and children counts
-  links.forEach((link) => {
-    const sourceId = `depth_${link.depth_from_root}`;
-    const targetId = `children_${link.children_count}`;
-
-    // Create source node
-    if (!nodeMap.has(sourceId)) {
-      nodeMap.set(sourceId, {
-        id: sourceId,
-        name: `Depth ${link.depth_from_root}`,
-        value: 0,
-        sourceLinks: [],
-        targetLinks: [],
-      });
-    }
-
-    // Create target node
-    if (!nodeMap.has(targetId)) {
-      nodeMap.set(targetId, {
-        id: targetId,
-        name: `${link.children_count} Children`,
-        value: 0,
-        sourceLinks: [],
-        targetLinks: [],
-      });
-    }
-  });
-
-  // Group links by source-target pairs and sum their values
-  const linkGroups = new Map<string, number>();
-  links.forEach((link) => {
-    const sourceId = `depth_${link.depth_from_root}`;
-    const targetId = `children_${link.children_count}`;
-    const linkKey = `${sourceId}-${targetId}`;
-
-    linkGroups.set(linkKey, (linkGroups.get(linkKey) || 0) + 1);
-  });
-
-  // Create processed links
-  linkGroups.forEach((value, linkKey) => {
-    const [sourceId, targetId] = linkKey.split("-");
-    const sourceNode = nodeMap.get(sourceId)!;
-    const targetNode = nodeMap.get(targetId)!;
-
-    const processedLink: SankeyProcessedLink = {
-      source: sourceNode,
-      target: targetNode,
-      value: value,
-    };
-
-    processedLinks.push(processedLink);
-    sourceNode.sourceLinks!.push(processedLink);
-    targetNode.targetLinks!.push(processedLink);
-  });
-
-  // Calculate node values
-  nodeMap.forEach((node) => {
-    node.value = Math.max(
-      d3.sum(node.sourceLinks!, (d) => d.value),
-      d3.sum(node.targetLinks!, (d) => d.value)
-    );
-  });
-
-  return {
-    nodes: Array.from(nodeMap.values()),
-    links: processedLinks,
-  };
-}
-
-// Simplified Sankey layout function
-function createSankeyLayout(width: number, height: number) {
-  return function (data: {
-    nodes: SankeyNode[];
-    links: SankeyProcessedLink[];
-  }) {
-    const { nodes, links } = data;
-
-    // Group nodes by their type (depth vs children)
-    const depthNodes = nodes.filter((n) => n.id.startsWith("depth_"));
-    const childrenNodes = nodes.filter((n) => n.id.startsWith("children_"));
-
-    const nodeWidth = 20;
-    const nodePadding = 10;
-
-    // Position depth nodes on the left
-    const leftX = 50;
-    const rightX = width - nodeWidth - 50;
-
-    // Calculate positions for depth nodes
-    const depthHeight = Math.max(
-      20,
-      (height - (depthNodes.length - 1) * nodePadding) / depthNodes.length
-    );
-    depthNodes.forEach((node, i) => {
-      node.x = leftX;
-      node.y = i * (depthHeight + nodePadding);
-      node.width = nodeWidth;
-      node.height = Math.max(
-        5,
-        depthHeight * (node.value / d3.max(depthNodes, (d) => d.value)!)
-      );
-    });
-
-    // Calculate positions for children nodes
-    const childrenHeight = Math.max(
-      20,
-      (height - (childrenNodes.length - 1) * nodePadding) / childrenNodes.length
-    );
-    childrenNodes.forEach((node, i) => {
-      node.x = rightX;
-      node.y = i * (childrenHeight + nodePadding);
-      node.width = nodeWidth;
-      node.height = Math.max(
-        5,
-        childrenHeight * (node.value / d3.max(childrenNodes, (d) => d.value)!)
-      );
-    });
-
-    // Calculate link positions
-    links.forEach((link) => {
-      link.width = Math.max(1, link.value * 3);
-      link.y0 = link.source.y! + link.source.height! / 2;
-      link.y1 = link.target.y! + link.target.height! / 2;
-    });
-
-    return { nodes, links };
-  };
-}
-
-// Path generator for Sankey links
-function sankeyLinkPath(d: any) {
-  const curvature = 0.5;
-  const x0 = d.source.x + d.source.width;
-  const x1 = d.target.x;
-  const xi = d3.interpolateNumber(x0, x1);
-  const x2 = xi(curvature);
-  const x3 = xi(1 - curvature);
-  const y0 = d.y0;
-  const y1 = d.y1;
-
-  return `M${x0},${y0}C${x2},${y0} ${x3},${y1} ${x1},${y1}`;
-}
-
-export default SankeyDiagram;

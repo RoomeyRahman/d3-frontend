@@ -6,20 +6,26 @@ import { useGenerateChartMutation } from "@/lib/api/uploadApi";
 import type { Recommendation } from "@/lib/api/uploadApi";
 
 import BarChart from "../../componets/Charts/BarChart";
-import ScatterPlot from "../../componets/Charts/ScatterPlot";
-import LineChart from "../../componets/Charts/LineChart";
 import PieChart from "../../componets/Charts/PieChart";
 import ChoroplethMap from "../../componets/Charts/ChoroplpethMap";
-import Histogram from "../../componets/Charts/Histogram";
 import AreaChart from "../../componets/Charts/AreaChart";
 import TreemapChart from "../../componets/Charts/TreeMapChart";
 import ForceDirectedNetwork from "../../componets/Charts/ForceDirected";
-import SankeyDiagram from "../../componets/Charts/Sankey";
 import DonutChart from "../../componets/Charts/DonutChart";
 import DensityPlot from "../../componets/Charts/DensityPlot";
-import { SunburstChart } from "../../componets/Charts/Sunburst";
 import DotPlotChart from "../../componets/Charts/DotPlot";
 import { HeatmapChart } from "../../componets/Charts/HeatmapChart";
+import { LineChart } from "../../componets/Charts/LineChart";
+import Histogram from "../../componets/Charts/Histogram";
+import { ViolinPlot } from "../../componets/Charts/ViolinPlot";
+import ScatterPlot from "../../componets/Charts/ScatterPlot";
+import { SunburstChart } from "../../componets/Charts/Sunburst";
+import { ArcDiagram } from "../../componets/Charts/ArcDiagram";
+import { SankeyDiagram } from "../../componets/Charts/Sankey";
+import BoxPlot from "../../componets/Charts/BoxPlot";
+import ContourPlot from "../../componets/Charts/ContourPlot";
+import { ConvexHullChart } from "../../componets/Charts/ConvexHull";
+import { ChordDiagram } from "../../componets/Charts/ChordDiagram ";
 
 interface D3ChartProps {
   sessionId: string;
@@ -35,11 +41,17 @@ const CHART_TYPE_MAP: Record<string, string> = {
   choropleth: "choropleth",
   treemap: "treemap",
   force_directed: "forceDirectedGraph",
-  sankey: "sankey",
+  sankeyDiagram: "sankeyDiagram",
   heatmap: "heatmap",
   donut_chart: "donut",
   density_plot: "density",
   sunburst: "sunburst",
+  violinPlot: "violinPlot",
+  arcDiagram: "arcDiagram",
+  boxPlot: "boxPlot",
+  contourPlot: "contourPlot",
+  convexHull: "convexHull",
+  chordDiagram: "chordDiagram",
 };
 
 const D3Chart = ({ sessionId }: D3ChartProps) => {
@@ -128,7 +140,7 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
       case "forceDirectedGraph":
         return <ForceDirectedNetwork data={currentChartData} />;
 
-      case "sankey":
+      case "sankeyDiagram":
         return <SankeyDiagram data={currentChartData} />;
 
       case "density":
@@ -138,6 +150,18 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
         return <SunburstChart data={currentChartData} />;
       case "dotPlot":
         return <DotPlotChart data={currentChartData} />;
+      case "violinPlot":
+        return <ViolinPlot data={currentChartData} />;
+      case "arcDiagram":
+        return <ArcDiagram data={currentChartData} />;
+      case "boxPlot":
+        return <BoxPlot data={currentChartData} />;
+      case "contourPlot":
+        return <ContourPlot data={currentChartData} />;
+      case "convexHull":
+        return <ConvexHullChart data={currentChartData} />;
+      case "chordDiagram":
+        return <ChordDiagram chartConfiguration={currentChartData} />;
 
       default:
         return (

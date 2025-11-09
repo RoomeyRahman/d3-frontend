@@ -105,9 +105,6 @@ const RecommendationComponent = ({
           <TrendingUp className="h-5 w-5 text-slate-600" />
           Chart Recommendations
         </h2>
-        <p className="text-sm text-slate-600 mt-1">
-          AI-powered visualization suggestions based on your data analysis
-        </p>
       </div>
 
       {/* Recommendations List */}

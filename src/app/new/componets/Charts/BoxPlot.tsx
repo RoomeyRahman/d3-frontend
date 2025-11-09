@@ -1,393 +1,342 @@
-"use client";
-import React, { useRef, useEffect } from "react";
+import React, { useEffect, useRef, useMemo } from "react";
 import * as d3 from "d3";
 
-interface Node {
-  id: string;
-  group: number;
-}
+const BoxPlot = ({ data }) => {
+  const svgRef = useRef(null);
 
-interface Link {
-  source: string;
-  target: string;
-  value: number;
-}
+  // Safely extract configuration and values
+  const config = data?.chart_configuration || data;
+  const values = config?.data?.values || data?.values || [];
 
-interface NetworkData {
-  type: string;
-  nodes: Node[];
-  links: Link[];
-}
+  // Get dimensions from config or use defaults
+  const dimensions = config?.dimensions || {
+    width: 900,
+    height: 600,
+    margin: { top: 20, right: 20, bottom: 80, left: 70 },
+  };
 
-interface BoxPlotProps {
-  data: NetworkData;
-  width?: number;
-  height?: number;
-}
+  const { width, height, margin } = dimensions;
 
-export default function BoxPlotChart({ data, width = 800, height = 500 }: BoxPlotProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
+  // Calculate statistics for box plot
+  const calculateStats = (numbers) => {
+    if (!numbers || numbers.length === 0) return null;
+
+    const sorted = [...numbers].sort((a, b) => a - b);
+    const q1 = d3.quantile(sorted, 0.25);
+    const q2 = d3.quantile(sorted, 0.5);
+    const q3 = d3.quantile(sorted, 0.75);
+    const iqr = q3 - q1;
+
+    const lowerWhisker = Math.max(sorted[0], q1 - 1.5 * iqr);
+    const upperWhisker = Math.min(sorted[sorted.length - 1], q3 + 1.5 * iqr);
+
+    const outliers = sorted.filter((v) => v < lowerWhisker || v > upperWhisker);
+
+    return {
+      min: sorted[0],
+      max: sorted[sorted.length - 1],
+      q1,
+      q2,
+      q3,
+      lowerWhisker,
+      upperWhisker,
+      outliers,
+      mean: d3.mean(numbers),
+    };
+  };
+
+  // Group data by source and calculate box plot stats
+  const boxPlotData = useMemo(() => {
+    if (!values || values.length === 0) return [];
+
+    const grouped = d3.group(values, (d) => d.source || d.category || d.name);
+
+    const sourceStats = Array.from(grouped, ([source, items]) => {
+      const vals = items.map(
+        (item) => item.value || item.weight || item.val || 0
+      );
+      const stats = calculateStats(vals);
+      return stats
+        ? {
+            source,
+            values: vals,
+            count: vals.length,
+            stats,
+          }
+        : null;
+    })
+      .filter(Boolean)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15); // Show top 15 sources
+
+    return sourceStats;
+  }, [values]);
 
   useEffect(() => {
-    if (!data || !data.nodes || !data.links) return;
+    if (!svgRef.current || boxPlotData.length === 0) return;
 
-    // Convert network data to box plot data (group by node groups)
-    const boxPlotData = convertToBoxPlotData(data);
+    // Clear previous content
+    d3.select(svgRef.current).selectAll("*").remove();
 
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    const svg = d3
+      .select(svgRef.current)
+      .attr("width", width)
+      .attr("height", height);
 
-    // Create a container group for zoom/pan
-    const container = svg.append("g");
-
-    const margin = { top: 40, right: 30, bottom: 60, left: 60 };
-    const innerWidth = width - margin.left - margin.right;
-    const innerHeight = height - margin.top - margin.bottom;
-
-    const g = container
+    const g = svg
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const color = d3.scaleOrdinal(d3.schemeCategory10);
+    const chartWidth = width - margin.left - margin.right;
+    const chartHeight = height - margin.top - margin.bottom;
 
-    // X scale
-    const x = d3
+    // Scales
+    const xScale = d3
       .scaleBand()
-      .domain(boxPlotData.map((d) => d.group))
-      .range([0, innerWidth])
-      .padding(0.3);
+      .domain(boxPlotData.map((d) => d.source))
+      .range([0, chartWidth])
+      .padding(0.2);
 
-    // Y scale
-    const allValues = boxPlotData.flatMap((d) => [
-      d.min,
-      d.q1,
-      d.median,
-      d.q3,
-      d.max,
-      ...d.outliers,
-    ]);
-    const y = d3
-      .scaleLinear()
-      .domain([0, d3.max(allValues) || 10])
-      .nice()
-      .range([innerHeight, 0]);
+    const allValues = boxPlotData.flatMap((d) => [d.stats.min, d.stats.max]);
+    const yMin = Math.max(0.1, d3.min(allValues));
+    const yMax = d3.max(allValues);
 
-    // Add X axis
+    const yScale = d3
+      .scaleLog()
+      .domain([yMin, yMax])
+      .range([chartHeight, 0])
+      .clamp(true);
+
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+
+    // X-axis
     g.append("g")
-      .attr("transform", `translate(0,${innerHeight})`)
-      .call(d3.axisBottom(x))
+      .attr("class", "x-axis")
+      .attr("transform", `translate(0,${chartHeight})`)
+      .call(d3.axisBottom(xScale))
       .selectAll("text")
-      .style("font-size", "12px");
+      .attr("transform", "rotate(-45)")
+      .style("text-anchor", "end")
+      .attr("dx", "-.8em")
+      .attr("dy", ".15em")
+      .style("font-size", "11px");
 
-    // Add Y axis
+    // Y-axis
     g.append("g")
-      .call(d3.axisLeft(y))
-      .selectAll("text")
-      .style("font-size", "12px");
+      .attr("class", "y-axis")
+      .call(d3.axisLeft(yScale).ticks(10).tickFormat(d3.format("~s")));
 
-    // Add Y axis label
+    // X-axis label
     g.append("text")
+      .attr("class", "x-axis-label")
+      .attr("x", chartWidth / 2)
+      .attr("y", chartHeight + 60)
+      .attr("text-anchor", "middle")
+      .style("font-size", "14px")
+      .style("font-weight", "bold")
+      .text(config?.axes?.x?.label || "Character");
+
+    // Y-axis label
+    g.append("text")
+      .attr("class", "y-axis-label")
       .attr("transform", "rotate(-90)")
-      .attr("y", -margin.left + 15)
-      .attr("x", -innerHeight / 2)
+      .attr("x", -chartHeight / 2)
+      .attr("y", -50)
       .attr("text-anchor", "middle")
       .style("font-size", "14px")
-      .text("Link Values");
+      .style("font-weight", "bold")
+      .text(config?.axes?.y?.label || "Connection Weight (log scale)");
 
-    // Add X axis label
-    g.append("text")
-      .attr("x", innerWidth / 2)
-      .attr("y", innerHeight + margin.bottom - 20)
-      .attr("text-anchor", "middle")
-      .style("font-size", "14px")
-      .text("Node Groups");
+    // Create tooltip
+    const tooltip = d3
+      .select("body")
+      .append("div")
+      .attr("class", "tooltip")
+      .style("position", "absolute")
+      .style("padding", "8px")
+      .style("background", "rgba(0, 0, 0, 0.8)")
+      .style("color", "white")
+      .style("border-radius", "4px")
+      .style("font-size", "12px")
+      .style("pointer-events", "none")
+      .style("opacity", 0);
+
+    const boxWidth = config?.chartSpecific?.boxWidth || 30;
 
     // Draw box plots
-    boxPlotData.forEach((d) => {
-      const xPos = x(d.group)! + x.bandwidth() / 2;
-      const boxWidth = x.bandwidth() * 0.6;
+    const boxGroups = g
+      .selectAll(".box-group")
+      .data(boxPlotData)
+      .enter()
+      .append("g")
+      .attr("class", "box-group")
+      .attr(
+        "transform",
+        (d) => `translate(${xScale(d.source) + xScale.bandwidth() / 2},0)`
+      );
 
-      // Vertical line (min to max)
-      g.append("line")
-        .attr("x1", xPos)
-        .attr("x2", xPos)
-        .attr("y1", y(d.min))
-        .attr("y2", y(d.max))
-        .attr("stroke", "black")
-        .attr("stroke-width", 1);
+    // Whiskers
+    boxGroups
+      .append("line")
+      .attr("class", "whisker")
+      .attr("x1", 0)
+      .attr("x2", 0)
+      .attr("y1", (d) => yScale(d.stats.lowerWhisker))
+      .attr("y2", (d) => yScale(d.stats.upperWhisker))
+      .attr("stroke", (d, i) => colorScale(i))
+      .attr("stroke-width", 1);
 
-      // Box (Q1 to Q3)
-      g.append("rect")
-        .attr("x", xPos - boxWidth / 2)
-        .attr("y", y(d.q3))
-        .attr("width", boxWidth)
-        .attr("height", y(d.q1) - y(d.q3))
-        .attr("fill", color(d.group))
-        .attr("stroke", "black")
-        .attr("stroke-width", 1.5)
-        .attr("opacity", 0.7);
+    // Lower whisker cap
+    boxGroups
+      .append("line")
+      .attr("class", "whisker-cap")
+      .attr("x1", -boxWidth / 4)
+      .attr("x2", boxWidth / 4)
+      .attr("y1", (d) => yScale(d.stats.lowerWhisker))
+      .attr("y2", (d) => yScale(d.stats.lowerWhisker))
+      .attr("stroke", (d, i) => colorScale(i))
+      .attr("stroke-width", 1);
 
-      // Median line
-      g.append("line")
-        .attr("x1", xPos - boxWidth / 2)
-        .attr("x2", xPos + boxWidth / 2)
-        .attr("y1", y(d.median))
-        .attr("y2", y(d.median))
-        .attr("stroke", "black")
-        .attr("stroke-width", 2);
+    // Upper whisker cap
+    boxGroups
+      .append("line")
+      .attr("class", "whisker-cap")
+      .attr("x1", -boxWidth / 4)
+      .attr("x2", boxWidth / 4)
+      .attr("y1", (d) => yScale(d.stats.upperWhisker))
+      .attr("y2", (d) => yScale(d.stats.upperWhisker))
+      .attr("stroke", (d, i) => colorScale(i))
+      .attr("stroke-width", 1);
 
-      // Min whisker
-      g.append("line")
-        .attr("x1", xPos - boxWidth / 4)
-        .attr("x2", xPos + boxWidth / 4)
-        .attr("y1", y(d.min))
-        .attr("y2", y(d.min))
-        .attr("stroke", "black")
-        .attr("stroke-width", 1.5);
+    // Box (IQR)
+    boxGroups
+      .append("rect")
+      .attr("class", "box")
+      .attr("x", -boxWidth / 2)
+      .attr("y", (d) => yScale(d.stats.q3))
+      .attr("width", boxWidth)
+      .attr("height", (d) =>
+        Math.max(1, yScale(d.stats.q1) - yScale(d.stats.q3))
+      )
+      .attr("fill", (d, i) => colorScale(i))
+      .attr("fill-opacity", 0.6)
+      .attr("stroke", (d, i) => colorScale(i))
+      .attr("stroke-width", 2)
+      .on("mouseover", function (event, d) {
+        d3.select(this).attr("fill-opacity", 0.8).attr("stroke-width", 3);
 
-      // Max whisker
-      g.append("line")
-        .attr("x1", xPos - boxWidth / 4)
-        .attr("x2", xPos + boxWidth / 4)
-        .attr("y1", y(d.max))
-        .attr("y2", y(d.max))
-        .attr("stroke", "black")
-        .attr("stroke-width", 1.5);
+        tooltip.transition().duration(200).style("opacity", 1);
 
-      // Outliers
-      d.outliers.forEach((value: number) => {
-        g.append("circle")
-          .attr("cx", xPos)
-          .attr("cy", y(value))
-          .attr("r", 3)
-          .attr("fill", color(d.group))
-          .attr("stroke", "black")
-          .attr("stroke-width", 1);
+        tooltip
+          .html(
+            `
+          <strong>${d.source}</strong><br/>
+          Count: ${d.count}<br/>
+          Min: ${d.stats.min}<br/>
+          Q1: ${d.stats.q1.toFixed(1)}<br/>
+          Median: ${d.stats.q2.toFixed(1)}<br/>
+          Q3: ${d.stats.q3.toFixed(1)}<br/>
+          Max: ${d.stats.max}<br/>
+          Mean: ${d.stats.mean.toFixed(1)}
+        `
+          )
+          .style("left", event.pageX + 10 + "px")
+          .style("top", event.pageY - 10 + "px");
+      })
+      .on("mouseout", function () {
+        d3.select(this).attr("fill-opacity", 0.6).attr("stroke-width", 2);
+
+        tooltip.transition().duration(200).style("opacity", 0);
       });
 
-      // Mean marker
-      g.append("circle")
-        .attr("cx", xPos)
-        .attr("cy", y(d.mean))
-        .attr("r", 4)
-        .attr("fill", "white")
-        .attr("stroke", "black")
-        .attr("stroke-width", 1.5);
-    });
-
-    // Add title
-    container
-      .append("text")
-      .attr("x", width / 2)
-      .attr("y", 20)
-      .attr("text-anchor", "middle")
-      .style("font-size", "16px")
-      .style("font-weight", "bold")
-      .text("Link Values Distribution by Node Group");
-
-    // Add legend
-    const legend = container
-      .append("g")
-      .attr("transform", `translate(${width - 120}, 40)`);
-
-    legend
-      .append("rect")
-      .attr("x", 0)
-      .attr("y", 0)
-      .attr("width", 12)
-      .attr("height", 12)
-      .attr("fill", "white")
-      .attr("stroke", "black");
-
-    legend
-      .append("text")
-      .attr("x", 18)
-      .attr("y", 10)
-      .style("font-size", "11px")
-      .text("Mean");
-
-    legend
+    // Median line
+    boxGroups
       .append("line")
-      .attr("x1", 0)
-      .attr("x2", 12)
-      .attr("y1", 26)
-      .attr("y2", 26)
-      .attr("stroke", "black")
+      .attr("class", "median")
+      .attr("x1", -boxWidth / 2)
+      .attr("x2", boxWidth / 2)
+      .attr("y1", (d) => yScale(d.stats.q2))
+      .attr("y2", (d) => yScale(d.stats.q2))
+      .attr("stroke", "#000")
       .attr("stroke-width", 2);
 
-    legend
-      .append("text")
-      .attr("x", 18)
-      .attr("y", 30)
-      .style("font-size", "11px")
-      .text("Median");
+    // Outliers
+    boxGroups
+      .selectAll(".outlier")
+      .data((d) =>
+        d.stats.outliers.map((outlier) => ({
+          outlier,
+          source: d.source,
+          color: colorScale(boxPlotData.indexOf(d)),
+        }))
+      )
+      .enter()
+      .append("circle")
+      .attr("class", "outlier")
+      .attr("cx", 0)
+      .attr("cy", (d) => yScale(d.outlier))
+      .attr("r", config?.chartSpecific?.outlierRadius || 4)
+      .attr("fill", (d) => d.color)
+      .attr("fill-opacity", 0.6)
+      .attr("stroke", (d) => d.color)
+      .on("mouseover", function (event, d) {
+        d3.select(this).attr("r", 6).attr("fill-opacity", 1);
 
-    // Add zoom behavior
-    const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.5, 5])
-      .on("zoom", (event) => {
-        container.attr("transform", event.transform);
+        tooltip.transition().duration(200).style("opacity", 1);
+
+        tooltip
+          .html(
+            `
+          <strong>${d.source}</strong><br/>
+          Outlier: ${d.outlier}
+        `
+          )
+          .style("left", event.pageX + 10 + "px")
+          .style("top", event.pageY - 10 + "px");
+      })
+      .on("mouseout", function () {
+        d3.select(this)
+          .attr("r", config?.chartSpecific?.outlierRadius || 4)
+          .attr("fill-opacity", 0.6);
+
+        tooltip.transition().duration(200).style("opacity", 0);
       });
 
-    svg.call(zoom);
+    // Cleanup tooltip on unmount
+    return () => {
+      tooltip.remove();
+    };
+  }, [boxPlotData, width, height, margin, config]);
 
-    // Add zoom controls overlay
-    const controls = svg.append("g")
-      .attr("class", "zoom-controls")
-      .attr("transform", `translate(${width - 50}, 10)`);
+  if (!values || values.length === 0) {
+    return (
+      <div className="p-4 bg-white rounded-lg shadow-lg">
+        <h2 className="text-xl font-bold text-red-600">No data available</h2>
+        <p className="text-gray-600">
+          Please provide data in the correct format.
+        </p>
+      </div>
+    );
+  }
 
-    // Zoom in button
-    const zoomInBtn = controls.append("g")
-      .style("cursor", "pointer")
-      .on("click", () => {
-        svg.transition().duration(300).call(zoom.scaleBy, 1.3);
-      });
-
-    zoomInBtn.append("rect")
-      .attr("width", 30)
-      .attr("height", 30)
-      .attr("fill", "#fff")
-      .attr("stroke", "#333")
-      .attr("stroke-width", 1)
-      .attr("rx", 4);
-
-    zoomInBtn.append("text")
-      .attr("x", 15)
-      .attr("y", 20)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 20)
-      .attr("font-weight", "bold")
-      .attr("fill", "#333")
-      .text("+");
-
-    // Zoom out button
-    const zoomOutBtn = controls.append("g")
-      .attr("transform", "translate(0, 35)")
-      .style("cursor", "pointer")
-      .on("click", () => {
-        svg.transition().duration(300).call(zoom.scaleBy, 0.7);
-      });
-
-    zoomOutBtn.append("rect")
-      .attr("width", 30)
-      .attr("height", 30)
-      .attr("fill", "#fff")
-      .attr("stroke", "#333")
-      .attr("stroke-width", 1)
-      .attr("rx", 4);
-
-    zoomOutBtn.append("text")
-      .attr("x", 15)
-      .attr("y", 20)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 20)
-      .attr("font-weight", "bold")
-      .attr("fill", "#333")
-      .text("−");
-
-    // Reset button
-    const resetBtn = controls.append("g")
-      .attr("transform", "translate(0, 70)")
-      .style("cursor", "pointer")
-      .on("click", () => {
-        svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
-      });
-
-    resetBtn.append("rect")
-      .attr("width", 30)
-      .attr("height", 30)
-      .attr("fill", "#fff")
-      .attr("stroke", "#333")
-      .attr("stroke-width", 1)
-      .attr("rx", 4);
-
-    resetBtn.append("text")
-      .attr("x", 15)
-      .attr("y", 20)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 16)
-      .attr("fill", "#333")
-      .text("⟲");
-
-  }, [data, width, height]);
+  if (boxPlotData.length === 0) {
+    return (
+      <div className="p-4 bg-white rounded-lg shadow-lg">
+        <h2 className="text-xl font-bold text-red-600">
+          No valid data to display
+        </h2>
+        <p className="text-gray-600">
+          Unable to create box plot from the provided data.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      <svg ref={svgRef} width={width} height={height} style={{ border: '1px solid #ddd' }}></svg>
-      <div style={{
-        position: 'absolute',
-        bottom: 10,
-        left: 10,
-        background: 'rgba(255,255,255,0.9)',
-        padding: '8px 12px',
-        borderRadius: 4,
-        fontSize: 12,
-        border: '1px solid #ddd'
-      }}>
-        <strong>Controls:</strong> Scroll to zoom | Drag to pan
-      </div>
+    <div className="p-4 bg-white rounded-lg shadow-lg">
+      <svg ref={svgRef}></svg>
     </div>
   );
-}
+};
 
-// Convert network data to box plot data
-function convertToBoxPlotData(data: NetworkData) {
-  // Group link values by node groups
-  const groupedData = new Map<string, number[]>();
-
-  data.links.forEach((link) => {
-    const sourceNode = data.nodes.find((n) => n.id === link.source);
-    const targetNode = data.nodes.find((n) => n.id === link.target);
-
-    if (sourceNode) {
-      const groupKey = `Group ${sourceNode.group}`;
-      if (!groupedData.has(groupKey)) {
-        groupedData.set(groupKey, []);
-      }
-      groupedData.get(groupKey)!.push(link.value);
-    }
-
-    if (targetNode && targetNode.group !== sourceNode?.group) {
-      const groupKey = `Group ${targetNode.group}`;
-      if (!groupedData.has(groupKey)) {
-        groupedData.set(groupKey, []);
-      }
-      groupedData.get(groupKey)!.push(link.value);
-    }
-  });
-
-  // Calculate box plot statistics for each group
-  const boxPlotData: any[] = [];
-
-  groupedData.forEach((values, group) => {
-    const sorted = values.sort((a, b) => a - b);
-    const q1 = d3.quantile(sorted, 0.25) || 0;
-    const median = d3.quantile(sorted, 0.5) || 0;
-    const q3 = d3.quantile(sorted, 0.75) || 0;
-    const iqr = q3 - q1;
-    const mean = d3.mean(sorted) || 0;
-
-    // Calculate outliers using IQR method
-    const lowerFence = q1 - 1.5 * iqr;
-    const upperFence = q3 + 1.5 * iqr;
-
-    const outliers = sorted.filter((v) => v < lowerFence || v > upperFence);
-    const nonOutliers = sorted.filter((v) => v >= lowerFence && v <= upperFence);
-
-    const min = nonOutliers.length > 0 ? nonOutliers[0] : sorted[0];
-    const max = nonOutliers.length > 0 ? nonOutliers[nonOutliers.length - 1] : sorted[sorted.length - 1];
-
-    boxPlotData.push({
-      group,
-      min,
-      q1,
-      median,
-      q3,
-      max,
-      mean,
-      outliers,
-    });
-  });
-
-  return boxPlotData;
-}
+export default BoxPlot;
