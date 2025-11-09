@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useAppSelector } from "@/lib/hooks";
-import { useGenerateChartMutation } from "@/lib/api/uploadApi";
 import type { Recommendation } from "@/lib/api/uploadApi";
 
 import BarChart from "../../componets/Charts/BarChart";
@@ -60,15 +59,12 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [mounted, setMounted] = useState(false);
   const [currentChartData, setCurrentChartData] = useState<any>(null);
-  const [pendingChartType, setPendingChartType] = useState<string>("");
 
   const sessionData = useAppSelector(
     (state) => state.session.sessions[sessionId]
   );
 
-  // Use mutation hook correctly
-  const [generateChart, { data: chartData, isLoading, error }] =
-    useGenerateChartMutation();
+  console.log("---------", sessionData.chartConfig);
 
   useEffect(() => {
     setMounted(true);
@@ -83,23 +79,21 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
     }
   }, [sessionData, selectedChart]);
 
+  // Update chart data when selectedChart changes
   useEffect(() => {
-    if (mounted && selectedChart && sessionData?.dataset_id) {
-      // Set pending chart type to show loading state
-      setPendingChartType(selectedChart);
-      generateChart({
-        dataset_id: sessionData.dataset_id,
-        target_chart: selectedChart,
-      });
-    }
-  }, [selectedChart, sessionData?.dataset_id, mounted, generateChart]);
+    if (mounted && selectedChart && sessionData?.chartConfig) {
+      // Find the chart config that matches the selected chart type
+      const chartConfig = sessionData.chartConfig.find(
+        (config: any) => config.chartType === selectedChart
+      );
 
-  useEffect(() => {
-    if (chartData && !isLoading) {
-      setCurrentChartData(chartData);
-      setPendingChartType(""); // Clear pending state when data arrives
+      if (chartConfig) {
+        setCurrentChartData(chartConfig);
+      } else {
+        setCurrentChartData(null);
+      }
     }
-  }, [chartData, isLoading]);
+  }, [selectedChart, sessionData?.chartConfig, mounted]);
 
   const renderChart = () => {
     if (!currentChartData) return null;
@@ -205,20 +199,11 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
     );
   }
 
-  const isLoadingChart = pendingChartType !== "" && isLoading;
-
   return (
     <div className="w-full">
       {/* Chart Container with fixed height */}
       <div className="w-full flex flex-col items-center justify-center min-h-[300px]">
-        {isLoadingChart ? (
-          <div className="flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-            <span className="text-gray-600">
-              Generating {getChartTitle()}...
-            </span>
-          </div>
-        ) : !selectedChart ? (
+        {!selectedChart ? (
           <p className="text-gray-600">
             Select a chart type to visualize your data
           </p>
@@ -252,24 +237,19 @@ const D3Chart = ({ sessionId }: D3ChartProps) => {
                 d="M3 3v18h18M7 14l3-3 4 4 5-5"
               />
             </svg>
-            <p className="text-sm">No data available for visualization</p>
+            <p className="text-sm">
+              No chart configuration available for {getChartTitle()}
+            </p>
           </div>
         )}
       </div>
-
-      {/* Error alert */}
-      {error && (
-        <div className="mt-6 p-3 bg-red-50 border border-red-400 text-red-700 rounded-lg text-sm">
-          {(error as any).data?.detail || "Failed to generate chart"}
-        </div>
-      )}
 
       {/* Chart Type Dropdown */}
       <div className="relative mt-6 flex items-center justify-end">
         <button
           className="px-3 py-2 text-sm flex items-center space-x-1 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md disabled:opacity-50 transition-all"
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          disabled={isLoadingChart || recommendations.length === 0}
+          disabled={recommendations.length === 0}
         >
           <span>{selectedChart ? getChartTitle() : "Select Chart Type"}</span>
           <svg

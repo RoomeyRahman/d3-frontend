@@ -59,10 +59,12 @@ const ScatterPlot: React.FC<MasterScatterPlotProps> = ({ data }) => {
 
   console.log(brushSelection);
 
-  useEffect(() => {
-    if (!data?.chart_configuration || !svgRef.current) return;
+  console.log("scatter", data);
 
-    const config = data.chart_configuration;
+  useEffect(() => {
+    if (!data || !svgRef.current) return;
+
+    const config = data;
 
     // Get data from various possible locations
     const rawData =
@@ -601,7 +603,7 @@ const ScatterPlot: React.FC<MasterScatterPlotProps> = ({ data }) => {
     };
   }, [data]);
 
-  if (!data?.chart_configuration) {
+  if (!data) {
     return (
       <div className="flex items-center justify-center h-96 bg-gray-50 rounded-lg">
         <div className="text-center">
@@ -614,7 +616,7 @@ const ScatterPlot: React.FC<MasterScatterPlotProps> = ({ data }) => {
     );
   }
 
-  const config = data.chart_configuration;
+  const config = data;
   const { dimensions } = config;
 
   return (

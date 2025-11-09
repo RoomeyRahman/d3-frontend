@@ -36,8 +36,8 @@ export function HeatmapChart({
   useEffect(() => {
     // Extract values from nested structure
     let values: HeatmapDataPoint[] = [];
-    if (data?.chart_configuration?.data?.values) {
-      values = data.chart_configuration.data.values;
+    if (data?.data?.values) {
+      values = data.data.values;
     } else if (data?.data?.values) {
       values = data.data.values;
     } else if (data?.values) {

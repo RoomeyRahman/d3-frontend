@@ -45,9 +45,9 @@ export const SunburstChart: React.FC<SunburstChartProps> = ({ data }) => {
   const [selectedNode, setSelectedNode] = useState<CharacterNode | null>(null);
 
   useEffect(() => {
-    if (!data || !data.chart_configuration || !svgRef.current) return;
+    if (!data || !data || !svgRef.current) return;
 
-    const config = data.chart_configuration;
+    const config = data;
     const flatData = config.data.flat_data;
 
     if (!flatData || flatData.length === 0) return;

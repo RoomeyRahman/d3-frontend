@@ -6,7 +6,7 @@ const Histogram = ({ data }) => {
   const tooltipRef = useRef(null);
 
   // Extract configuration
-  const chartConfig = data?.chart_configuration || data;
+  const chartConfig = data;
 
   const { histogramData, xScale, yScale, valueExtent, dimensions } =
     useMemo(() => {

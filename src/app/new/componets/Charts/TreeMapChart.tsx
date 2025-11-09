@@ -14,8 +14,8 @@ const TreemapChart = ({ data }) => {
       return;
     }
 
-    const flatData = data.chart_configuration.data.flat_data;
-    const config = data.chart_configuration;
+    const flatData = data.data.flat_data;
+    const config = data;
     const { width, height } = config.dimensions;
 
     // Clear previous chart

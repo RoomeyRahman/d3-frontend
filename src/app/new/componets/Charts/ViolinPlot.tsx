@@ -5,9 +5,9 @@ export const ViolinPlot = ({ data }) => {
   const svgRef = useRef(null);
 
   useEffect(() => {
-    if (!data || !data.chart_configuration) return;
+    if (!data || !data) return;
 
-    const config = data.chart_configuration;
+    const config = data;
     const rawData = config.data.values;
     const { width, height, margin } = config.dimensions;
 

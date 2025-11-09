@@ -22,7 +22,8 @@ export default function HomeComponent() {
 
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const [getChartRecommendations, { isLoading, error }] = useGetChartRecommendationsMutation();
+  const [getChartRecommendations, { isLoading, error }] =
+    useGetChartRecommendationsMutation();
 
   const models = [
     "Neural Network",
@@ -88,41 +89,59 @@ export default function HomeComponent() {
       setCurrentStep("Analysis complete!");
 
       // Generate a session ID
-      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const sessionId = `session_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
 
       // Store session ID in Redux
       dispatch(setCurrentSession(sessionId));
 
       // Store session data with chart recommendations
-      const edgesData = chartResult.data?.find(item => item.name === 'links')?.df || [];
+      const edgesData =
+        chartResult.data?.find((item) => item.name === "links")?.df || [];
 
       // Create sample data for display - ensure all values are primitives
-      const sampleData = edgesData.slice(0, 10).map((edge, index) => {
-        // Ensure all values are primitive types that can be safely rendered
-        const source = typeof edge.source === 'object' ? JSON.stringify(edge.source) : String(edge.source || '');
-        const target = typeof edge.target === 'object' ? JSON.stringify(edge.target) : String(edge.target || '');
-        const value = typeof edge.value === 'object' ? 0 : Number(edge.value || 0);
+      const sampleData = edgesData
+        .slice(0, 10)
+        .map((edge, index) => {
+          // Ensure all values are primitive types that can be safely rendered
+          const source =
+            typeof edge.source === "object"
+              ? JSON.stringify(edge.source)
+              : String(edge.source || "");
+          const target =
+            typeof edge.target === "object"
+              ? JSON.stringify(edge.target)
+              : String(edge.target || "");
+          const value =
+            typeof edge.value === "object" ? 0 : Number(edge.value || 0);
 
-        return {
-          id: index + 1, // Add an ID for table key
-          source,
-          target,
-          value
-        };
-      }).filter(item => item.source && item.target); // Filter out invalid entries
+          return {
+            id: index + 1, // Add an ID for table key
+            source,
+            target,
+            value,
+          };
+        })
+        .filter((item) => item.source && item.target); // Filter out invalid entries
 
-      const chartDataForComponent = chartResult.chart_configuration;
+      const chartDataForComponent = chartResult.chart_configurations;
 
       dispatch(
         addSessionData({
           sessionId: sessionId,
-          dataset_id: "2a1cfce4f1d0de2a393b59fa893687c82d01b2de85f720b0becdb6a7cb9b02ab",
+          dataset_id:
+            "2a1cfce4f1d0de2a393b59fa893687c82d01b2de85f720b0becdb6a7cb9b02ab",
           data_profile: {
             num_rows: edgesData.length,
             num_columns: 3, // source, target, value
-            column_types: { source: 'string', target: 'string', value: 'number' },
-            numerical_columns: ['value'],
-            categorical_columns: ['source', 'target'],
+            column_types: {
+              source: "string",
+              target: "string",
+              value: "number",
+            },
+            numerical_columns: ["value"],
+            categorical_columns: ["source", "target"],
             temporal_columns: [],
             geographic_columns: [],
             statistical_summary: {},
@@ -133,14 +152,18 @@ export default function HomeComponent() {
             has_geographic_data: false,
             null_percentages: {},
             unique_ratios: {},
-            suggested_patterns: chartResult.patterns_detected?.map(p => p.pattern) || [],
+            suggested_patterns:
+              chartResult.patterns_detected?.map((p) => p.pattern) || [],
           },
           recommendations: chartResult.recommendations,
           sample_data: sampleData, // Properly formatted sample data
           chartData: chartDataForComponent,
-          chartConfig: chartResult.chart_configuration,
+          chartConfig: chartResult.chart_configurations,
           patternsDetected: chartResult.patterns_detected,
-          original_payload: chartResult.original_payload || { links: [], nodes: [] },
+          original_payload: chartResult.original_payload || {
+            links: [],
+            nodes: [],
+          },
         })
       );
 
@@ -395,7 +418,13 @@ export default function HomeComponent() {
                       clipRule="evenodd"
                     />
                   </svg>
-                  {error && 'data' in error && error.data && typeof error.data === 'object' && 'detail' in error.data ? String((error.data as { detail?: string }).detail) : "An error occurred"}
+                  {error &&
+                  "data" in error &&
+                  error.data &&
+                  typeof error.data === "object" &&
+                  "detail" in error.data
+                    ? String((error.data as { detail?: string }).detail)
+                    : "An error occurred"}
                 </div>
               </div>
             )}

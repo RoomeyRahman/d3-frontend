@@ -5,9 +5,9 @@ export const SankeyDiagram = ({ data: chartData }) => {
   const svgRef = useRef(null);
 
   useEffect(() => {
-    if (!chartData || !chartData.chart_configuration) return;
+    if (!chartData || !chartData) return;
 
-    const config = chartData.chart_configuration;
+    const config = chartData;
     const data = config.data;
 
     if (!data || !data.nodes || !data.links) return;

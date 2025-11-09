@@ -28,21 +28,23 @@ export interface ChartRecommendationResponse {
     confidence: number;
     description: string;
   }>;
-  chart_configuration: {
-    chartType: string;
-    dataMapping: any;
-    dimensions: any;
-    scales: any;
-    axes: any;
-    legend: any;
-    tooltip: any;
-    interactions: any;
-    styling: any;
-    chartSpecific: any;
-    metadata: any;
-    accessibility: any;
-    performance: any;
-  };
+  chart_configurations: [
+    {
+      chartType: string;
+      dataMapping: any;
+      dimensions: any;
+      scales: any;
+      axes: any;
+      legend: any;
+      tooltip: any;
+      interactions: any;
+      styling: any;
+      chartSpecific: any;
+      metadata: any;
+      accessibility: any;
+      performance: any;
+    }
+  ];
   original_payload: {
     type: string;
     nodes: { id: string; group: number }[];
